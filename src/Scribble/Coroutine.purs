@@ -25,6 +25,7 @@ import Data.List (List, (:))
 import Data.Monoid (mempty)
 import Data.StrMap (fromFoldable)
 import Data.Array as Array
+import Type.Proxy (Proxy)
 
 -- | An asynchronous untyped communication layer
 -- | Only values of 'primative' type a can be communicated
@@ -130,13 +131,14 @@ multiSession :: forall r rn p pn rns rns' list row s t c e ps eff.
   => Initial r s
   => Terminal r t
   => Transport c e ps
-  => ps
+  => Proxy c
+  -> ps
   -> Protocol p
   -> Tuple (Role r) Identifier
   -> Record row
   -> (Channel c s -> CR.Consumer Json (Aff (dom :: e, avar :: AVAR | eff)) (Channel c t))
   -> Aff (dom :: e, avar :: AVAR | eff) Unit
-multiSession params _ (Tuple r name) ass prog = do 
+multiSession _ params _ (Tuple r name) ass prog = do 
   (c :: Channel c s) <- open r params
   let (Channel ch _) = c
   CR.runProcess (cons c `CR.pullFrom` uProducer ch)

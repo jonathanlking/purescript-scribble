@@ -21,6 +21,7 @@ import Scribble.Coroutine as SC
 import Scribble.FSM (Protocol(..), Role(..))
 import Scribble.Protocol.Arithmetic (Arithmetic, C1, Client, S1, S8, Server)
 import Scribble.Transport.WebSocket (WebSocket)
+import Type.Proxy (Proxy(..))
 
 main :: _ 
 main = launchAff $ do
@@ -30,7 +31,9 @@ main = launchAff $ do
 
 prog :: forall eff. Int -> Aff (dom :: DOM, avar :: AVAR, console :: CONSOLE | eff) Unit
 prog n 
-  = SC.multiSession (WS.URL $ "ws://127.0.0.1:9160") 
+  = SC.multiSession
+        (Proxy :: Proxy WebSocket)
+        (WS.URL $ "ws://127.0.0.1:9160") 
         (Protocol :: Protocol Arithmetic) 
         (Tuple (Role :: Role Client)
         (SC.Identifier "Jonathan")) 
@@ -43,6 +46,7 @@ prog n
 runServer :: forall eff. Aff (dom :: DOM, avar :: AVAR | eff) Unit
 runServer
   = SC.multiSession
+        (Proxy :: Proxy WebSocket)
         (WS.URL $ "ws://127.0.0.1:9160") 
         (Protocol :: Protocol Arithmetic) 
         (Tuple (Role :: Role Server)
