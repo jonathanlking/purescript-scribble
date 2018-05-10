@@ -1,0 +1,7 @@
+{
+  "name": "fibonacci",
+  "private": true,
+  "dependencies": {
+    "purescript-scribble": "../"
+  }
+}
