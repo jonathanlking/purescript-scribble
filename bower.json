@@ -12,6 +12,8 @@
     "purescript-aff-coroutines": "^5.0.0",
     "purescript-argonaut-codecs": "^3.2.0",
     "purescript-argonaut-core": "^3.1.0",
+    "purescript-generics-rep": "^5.1.0",
+    "purescript-argonaut-generic": "^1.2.0",
     "purescript-typelevel-prelude": "^2.6.0",
     "purescript-symbols": "^3.0.0",
     "purescript-record": "^0.2.6",
