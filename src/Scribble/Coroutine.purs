@@ -2,13 +2,14 @@ module Scribble.Coroutine where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
 import Control.Monad.Aff (Aff, delay)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar', makeVar, putVar, tryTakeVar)
+import Control.Monad.Aff.AVar (AVAR, AVar, makeVar', putVar, tryTakeVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (error)
 import Control.Coroutine as CR
 import Data.Tuple (Tuple(..))
 import Prelude (class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<>), (>>=))
+import Control.Apply ((*>))
 import Control.Monad.Eff (kind Effect, Eff)
 import Type.Row (class ListToRow, Cons, Nil, kind RowList, RLProxy(RLProxy))
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
@@ -27,6 +28,7 @@ import Data.StrMap (fromFoldable, lookup)
 import Data.Array as Array
 import Type.Proxy (Proxy)
 import Data.String (toLower)
+import Data.List.Types (List(..))
 
 -- | An asynchronous untyped communication layer
 -- | Only values of 'primative' type a can be communicated
@@ -37,7 +39,7 @@ class Transport c (e :: Effect) p | c -> e p where
   uOpen     :: forall eff. p -> Eff (dom :: e | eff) c
   uClose    :: forall eff. c -> Eff (dom :: e | eff) Unit
 
-data Channel c s = Channel c (AVar Json) (AVar Unit)
+data Channel c s = Channel c (AVar (List Json)) (AVar Unit)
 
 -- | Runtime linearity check - will throw an error if a chanel is used multiple
 -- | times. Returns a new chanel with the usage reset.
@@ -57,7 +59,7 @@ open :: forall r n c s e eff p.
   => Role r -> p -> Aff (dom :: e, avar :: AVAR | eff) (Channel c s)
 open _ p = do
   b <- makeVar' unit
-  bv <- makeVar
+  bv <- makeVar' Nil
   c <- liftEff $ uOpen p
   pure $ Channel c bv b
 
@@ -88,8 +90,10 @@ receive :: forall r c a s t e eff p.
   => Channel c s -> CR.Consumer Json (Aff (dom :: e, avar :: AVAR | eff)) (Tuple a (Channel c t))
 receive c@(Channel t bv _) = do
   c' <- lift $ checkLinearity c
-  b <- lift $ tryTakeVar bv
-  x <- maybe CR.await pure b
+  b <- lift $ takeVar bv
+  x <- case b of
+    Nil -> (lift $ putVar bv Nil) *> CR.await
+    (Cons v vs) -> (lift $ putVar bv vs) *> pure v
   case decodeJson x of
     Left e  -> lift $ throwError $ error e
     Right a -> pure $ Tuple a c' 
@@ -215,7 +219,7 @@ choice c@(Channel _ bv _) row = do
     Nothing -> lift $ throwError $ error "Unable to parse tag of message in branch"
     (Just label) -> if (unsafeHas label row)
                       then do
-                         lift $ putVar bv x
+                         lift $ takeVar bv >>= \vs -> putVar bv (Cons x vs)
                          (unsafeGet label row) c'
                       else lift $ throwError (error $ "Branch chosen `"
                                              <> label  <> "`  is not supported")
