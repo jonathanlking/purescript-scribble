@@ -155,8 +155,9 @@ multiSession _ params _ (Tuple r name) ass prog = do
       lift $ uSend ch (encodeReq proxyReq) -- Send our session request params to the proxy
       _ <- CR.await -- We receive the role/ident assignment back (safe to ignore for now)
       c' <- prog c
-      pure unit
-      -- lift $ liftEff $ close r c'
+      lift $ uSend ch (fromString "close")
+      _ <- CR.await -- We wait to receive confirmation back
+      lift $ liftEff $ close r c'
     role = reflectSymbol (SProxy :: SProxy rn)
     proxyReq = { protocol: Tuple (reflectSymbol (SProxy :: SProxy pn)) (SList.symbols (SList.SLProxy :: SList.SLProxy rns)) 
       , role: role
