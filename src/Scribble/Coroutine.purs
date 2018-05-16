@@ -123,6 +123,7 @@ encodeReq req = fromObject $ fromFoldable $ (Tuple "protocol" protocol) : (Tuple
     roles' = fromArray $ fromString <$> Array.fromFoldable roles
     ass = fromObject $ fromString <$> fromFoldable req.assignment
 
+-- | Initialise a multiparty session using the proxy server
 multiSession :: forall r rn p pn rns rns' list row s t c e ps eff.
      RoleName r rn 
   => IsSymbol rn
@@ -164,17 +165,19 @@ multiSession _ params _ (Tuple r name) ass prog = do
       , assignment: (Tuple role (show name)) : (SList.getKVs (RLProxy :: RLProxy list) ass)
       }
 
+-- | Designed for a binary session (with direct communication)
 session :: forall r n c e p s t eff.
      Transport c e p
   => Initial r s
   => Terminal r t
   => RoleName r n
   => IsSymbol n
-  => Role r
+  => Proxy c
+  -> Role r
   -> p
   -> (Channel c s -> CR.Consumer Json (Aff (dom :: e, avar :: AVAR | eff)) (Channel c t))
   -> Aff (dom :: e, avar :: AVAR | eff) Unit
-session r p prog = do
+session _ r p prog = do
   (c :: Channel c s) <- open r p
   let (Channel ch _ _) = c
   CR.runProcess (cons c `CR.pullFrom` uProducer ch)
