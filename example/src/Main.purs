@@ -14,7 +14,7 @@ import DOM.Websocket.WebSocket as WS
 import Data.Argonaut.Core (Json)
 import Data.Symbol (SProxy(SProxy))
 import Data.Tuple (Tuple(..))
-import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), (<<<), (<=), (>), min, unit)
+import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), (<<<), (<=), (>), min, unit, (<>))
 import Data.Functor ((<$>))
 import Scribble.Coroutine as SC
 import Scribble.FSM (Protocol(..), Role(..))
@@ -38,7 +38,7 @@ main = launchAff $ do
 
 -- Examples for the Two-Buyer protocol
 
-buyer1 :: forall eff. Aff (dom :: DOM, avar :: AVAR | eff) Unit
+buyer1 :: forall eff. Aff (dom :: DOM, avar :: AVAR, console :: CONSOLE | eff) Unit
 buyer1 = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160") 
@@ -48,19 +48,22 @@ buyer1 = SC.multiSession
   (\c -> do
     c <- lift $ SC.send c (Book "War and Peace")
     (Tuple (Quote price) c) <- SC.receive c
+    lift $ liftEff $ log $ "Buyer1: Quoted £" <> show price
     -- Buyer1 can contribute a maximum of £10
     let cont = min 10 price
     c <- lift $ SC.send c (Contribution cont)
     SC.choice c { agree: \c -> do
       (Tuple Agree c) <- SC.receive c
+      lift $ liftEff $ log $ "Buyer1: Buyer2 agreed!"
       lift $ SC.send c (Transfer cont) 
                 , quit: \c -> do
       (Tuple Quit c) <- SC.receive c
+      lift $ liftEff $ log $ "Buyer1: Buyer2 quit!"
       pure c
                 }
   )
 
-buyer2 :: forall eff. Aff (dom :: DOM, avar :: AVAR | eff) Unit
+buyer2 :: forall eff. Aff (dom :: DOM, avar :: AVAR, console :: CONSOLE | eff) Unit
 buyer2 = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160") 
@@ -70,20 +73,23 @@ buyer2 = SC.multiSession
   (\c -> do 
     (Tuple (Quote price) c) <- SC.receive c
     (Tuple (Contribution amount) c) <- SC.receive c
+    lift $ liftEff $ log $ "Buyer2: Quoted £" <> show price <> ", with Buyer1 offering £" <> show amount
     let cont = price - amount -- The amount Buyer2 has to contribute
     if cont > 20 -- Buyer 2 will contribute up to £20
       then do
         c <- lift $ SC.select c (SProxy :: SProxy "quit")
+        lift $ liftEff $ log $ "Buyer2: Quitting!"
         c <- lift $ SC.send c Quit
         lift $ SC.send c Quit
       else do
         c <- lift $ SC.select c (SProxy :: SProxy "agree")
+        lift $ liftEff $ log $ "Buyer2: Agreeing!"
         c <- lift $ SC.send c Agree
         c <- lift $ SC.send c Agree
         lift $ SC.send c (Transfer cont)
   )
 
-seller :: forall eff. Aff (dom :: DOM, avar :: AVAR | eff) Unit
+seller :: forall eff. Aff (dom :: DOM, avar :: AVAR, console :: CONSOLE | eff) Unit
 seller = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160") 
@@ -92,15 +98,20 @@ seller = SC.multiSession
   {"Buyer1": SC.Identifier "Jonathan", "Buyer2": SC.Identifier "Nick"}
   (\c -> do
     (Tuple (Book name) c) <- SC.receive c
+    lift $ liftEff $ log $ "Seller: \"" <> name <> "\" requested"
     let quote = 30
     c <- lift $ SC.send c (Quote quote)
     c <- lift $ SC.send c (Quote quote)
     SC.choice c { agree: \c -> do
+      lift $ liftEff $ log $ "Seller: The decided to buy the book!"
       (Tuple Agree c) <- SC.receive c
       (Tuple (Transfer t1) c) <- SC.receive c
-      (Tuple (Transfer t1) c) <- SC.receive c
+      lift $ liftEff $ log $ "Seller: Received £" <> show t1 <> " from Buyer 1"
+      (Tuple (Transfer t2) c) <- SC.receive c
+      lift $ liftEff $ log $ "Seller: Received £" <> show t2 <> " from Buyer 2"
       pure c
                 , quit: \c -> do
+      lift $ liftEff $ log $ "Seller: The decided not to buy the book!"
       (Tuple Quit c) <- SC.receive c
       pure c
                 }
