@@ -24,11 +24,11 @@ import Unsafe.Coerce (unsafeCoerce)
 
 main = launchAff $ do
   -- Run the Arithmetic example
---  sequential $
---    (\ _ _ -> unit)
---      <$> parallel (prog 5)
---      <*> parallel runServer 
---  -- Run the Two-Buyer example
+  sequential $
+    (\ _ _ -> unit)
+      <$> parallel (prog 5)
+      <*> parallel runServer 
+  -- Run the Two-Buyer example
   sequential $
     (\ _ _ _ -> unit)
       <$> parallel buyer1
