@@ -94,7 +94,7 @@ receive :: forall r c a s t eff p.
      Receive r s t a
   => Transport c p
   => DecodeJson a
-  => Channel c s -> Aff (TransportEffects eff) (Tuple Json (Channel c t))
+  => Channel c s -> Aff (TransportEffects eff) (Tuple a (Channel c t))
 receive ch@(Channel c bv _) = do
   ch' <- checkLinearity ch
   b <- takeVar bv
