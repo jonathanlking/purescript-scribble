@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "scribble-playground",
+  "name": "purescript-scribble",
   "ignore": [
     "**/.*",
     "node_modules",

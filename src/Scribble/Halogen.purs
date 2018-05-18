@@ -37,7 +37,7 @@ import Control.Monad.Free.Trans (hoistFreeT)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Eff.Console (log)
 import Data.Either (Either(..), either)
-import Control.Monad.Eff.Exception (EXCEPTION, error)
+import Control.Monad.Eff.Exception (EXCEPTION, Error, error)
 import Control.Monad.Error.Class (throwError)
 
 -- | Designed for a binary session (with direct communication)
@@ -58,12 +58,12 @@ halogenSession _ r params query prog = do
   c' <- prog c
   lift $ close r c'
 
-foo :: forall eff. Aff eff ~> Aff eff
-foo x = do
+paranoid :: forall eff. (Error -> Aff (TransportEffects eff) Unit) -> Aff (TransportEffects eff) ~> Aff (TransportEffects eff)
+paranoid h x = do
   r <- attempt x
   case r of
     Left  e -> do 
-      liftEff $ unsafeCoerceEff $ log "finally!"
+      h e
       throwError e
     Right a -> pure a
 
@@ -88,15 +88,18 @@ halogenMultiSession :: forall r rn p pn rns rns' list row s t c ps q m eff.
   -> Protocol p
   -> Tuple (Role r) Identifier
   -> Record row
-  -> (q ~> Aff (TransportEffects (eff))) 
+  -> (q ~> Aff (TransportEffects eff))
+  -> (Error -> Aff (TransportEffects eff) Unit)
   -> (Channel c s -> Consumer m (Aff (TransportEffects (eff))) (Channel c t))
-  -> Consumer m (Aff (TransportEffects (eff))) Unit
-halogenMultiSession _ params _ (Tuple r name) ass query prog = do
-  (c :: Channel c s) <- lift $ open r params
-  let (Channel ch _ _) = c
-  lift $ uSend ch (encodeReq proxyReq) -- Send our session request params to the proxy
-  _ <- lift $ uReceive ch -- We receive the role/ident assignment back (safe to ignore for now)
-  c' <- hoistFreeT foo (prog c)
+  -> Consumer m (Aff (TransportEffects eff)) Unit
+halogenMultiSession _ params _ (Tuple r name) ass query handler prog = do
+  c@(Channel ch _ _) <- hoistFreeT (paranoid handler) $ lift $ do
+    c <- open r params
+    let (Channel ch _ _) = c
+    uSend ch (encodeReq proxyReq) -- Send our session request params to the proxy
+    _ <- uReceive ch -- We receive the role/ident assignment back (safe to ignore for now)
+    pure c
+  c' <- hoistFreeT (paranoid handler) (prog c)
   lift $ uSend ch (fromString "close")
   _ <- lift $ uReceive ch -- We wait to receive confirmation back
   lift $ close r c'

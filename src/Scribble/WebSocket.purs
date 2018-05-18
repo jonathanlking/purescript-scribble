@@ -53,7 +53,6 @@ open url = do
   ibuf <- makeEmptyVar
   socket <- liftEff $ WS.create url []
   -- Add the listener for receiving messages
-  liftEff $ unsafeCoerceEff $ log "1"
   liftEff $ EET.addEventListener
     WSET.onMessage
     (receiveListener ibuf)
@@ -77,15 +76,14 @@ open url = do
     false
     (WS.socketToEventTarget socket)
   -- Add the listener for a connection error
-  liftEff $ EET.addEventListener
-    WSET.onClose
-    (EET.eventListener \_ -> void $ launchAff $ do
-      liftEff $ unsafeCoerceEff $ log "error"
-      modifyVar (const Closed) status
-      throwError $ error "Connection closed")
-    false
-    (WS.socketToEventTarget socket)
-  liftEff $ unsafeCoerceEff $ log "2"
+--  liftEff $ EET.addEventListener
+--    WSET.onClose
+--    (EET.eventListener \_ -> void $ launchAff $ do
+--      liftEff $ unsafeCoerceEff $ log "error"
+--      modifyVar (const Closed) status
+--      throwError $ error "Connection closed")
+--    false
+--    (WS.socketToEventTarget socket)
   pure $ WebSocket status ibuf socket
     where
     receiveListener ibuf = EET.eventListener \ev -> do
@@ -105,9 +103,7 @@ send c@(WebSocket sv _ ws) x = do
 
 receive :: forall eff. WebSocket -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) Json
 receive c@(WebSocket sv ibuf _) = do
-  liftEff $ unsafeCoerceEff $ log "4"
   status <- readVar sv
-  liftEff $ unsafeCoerceEff $ log "5"
   case status of
     Open -> takeVar ibuf 
     Closed -> throwError $ error "Channel is closed"
