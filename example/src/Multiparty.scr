@@ -1,0 +1,20 @@
+module Multiparty;
+
+type <purescript> "String" from "Prim" as String;
+type <purescript> "Int" from "Prim" as Int;
+
+global protocol TwoBuyer(role Buyer1, role Buyer2, role Seller) {
+	Book(String) from Buyer1 to Seller;
+	Quote(Int) from Seller to Buyer1;
+	Quote(Int) from Seller to Buyer2;
+        Contribution(Int) from Buyer1 to Buyer2;
+	choice at Buyer2 {
+		Agree() from Buyer2 to Buyer1;
+                Agree() from Buyer2 to Seller;
+		Transfer(Int) from Buyer1 to Seller;
+		Transfer(Int) from Buyer2 to Seller;
+	} or {
+		Quit() from Buyer2 to Buyer1;
+                Quit() from Buyer2 to Seller;
+	}
+}
