@@ -2,7 +2,7 @@ module Scribble.Core where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
 import Control.Monad.Aff (Aff, delay)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeVar', putVar, tryTakeVar, takeVar)
+import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeEmptyVar, putVar, tryTakeVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (EXCEPTION, error)
@@ -54,7 +54,7 @@ checkLinearity :: forall c s t eff. Channel c s -> Aff (TransportEffects eff) (C
 checkLinearity (Channel c bv v) = do
   r <- tryTakeVar v
   case r of
-    (Just _) -> (Channel c bv) <$> makeVar' unit
+    (Just _) -> (Channel c bv) <$> makeVar unit
     _ -> throwError $ error "Linearity exception"
 
 -- | Open a new chanel and receive the initial state
@@ -65,8 +65,8 @@ open :: forall r n c s eff p.
   => IsSymbol n
   => Role r -> p -> Aff (TransportEffects eff) (Channel c s)
 open _ p = do
-  lin <- makeVar' unit
-  bstack <- makeVar' Nil
+  lin <- makeVar unit
+  bstack <- makeVar Nil
   c <- uOpen p
   pure $ Channel c bstack lin
 
@@ -100,9 +100,9 @@ receive ch@(Channel c bv _) = do
   b <- takeVar bv
   x <- case b of
     Nil -> do
-      putVar bv Nil
+      putVar Nil bv
       uReceive c
-    (Cons v vs) -> (putVar bv vs) *> pure v
+    (Cons v vs) -> (putVar vs bv) *> pure v
   case decodeJson x of
     Left e  -> throwError $ error e
     Right a -> pure $ Tuple a ch' 
@@ -224,7 +224,7 @@ choice c@(Channel ch bv _) row = do
     Nothing -> throwError $ error "Unable to parse tag of message in branch"
     (Just label) -> if (unsafeHas label row)
                       then do
-                         takeVar bv >>= \vs -> putVar bv (Cons x vs)
+                         takeVar bv >>= \vs -> putVar (Cons x vs) bv
                          (unsafeGet label row) c'
                       else throwError (error $ "Branch chosen `"
                                              <> label  <> "`  is not supported")

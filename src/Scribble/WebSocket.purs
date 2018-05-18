@@ -11,7 +11,6 @@ import DOM.Websocket.Types (URL)
 import Control.Monad.Eff.Class (liftEff)
 
 import Control.Coroutine as CR
-import Control.Coroutine.Aff as CRA
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Except (runExcept)
 import Data.Either (Either(..), either)
@@ -22,7 +21,7 @@ import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Error.Class (throwError)
 
 import Data.Maybe (Maybe(..))
-import Prelude (Unit, const, pure, unit, ($), (<<<), bind, discard, void)
+import Prelude (Unit, const, pure, unit, ($), (<<<), bind, discard, void, (>>=), (>>>), flip)
 
 import Data.Functor ((<$>))
 import Control.Monad.Aff (Aff)
@@ -31,7 +30,7 @@ import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Parser (jsonParser)
 
 import Control.Monad.Aff (Aff, delay, launchAff, forkAff)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeVar', putVar, peekVar, takeVar, modifyVar)
+import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeEmptyVar, putVar, readVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
@@ -40,10 +39,18 @@ data Status = Open | Closed
 
 data WebSocket = WebSocket (AVar Status) (AVar Json) WS.WebSocket
 
+-- TODO: Fix!
+-- This is an exception-unsafe implementation
+type AffAVar e a = Aff (avar :: AVAR | e) a
+modifyVar :: forall e a. (a -> a) -> AVar a -> AffAVar e Unit
+modifyVar f v = do
+  x <- takeVar v
+  putVar (f x) v
+
 open :: forall eff. URL -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) WebSocket
 open url = do
-  status <- makeVar
-  ibuf <- makeVar
+  status <- makeEmptyVar
+  ibuf <- makeEmptyVar
   socket <- liftEff $ WS.create url []
   -- Add the listener for receiving messages
   liftEff $ unsafeCoerceEff $ log "1"
@@ -57,7 +64,7 @@ open url = do
     WSET.onOpen
     (EET.eventListener \_ -> void $ launchAff $ do
       liftEff $ unsafeCoerceEff $ log "open"
-      putVar status Open)
+      putVar Open status)
     false
     (WS.socketToEventTarget socket)
   -- Add the listener for the connection closing
@@ -84,14 +91,14 @@ open url = do
     receiveListener ibuf = EET.eventListener \ev -> do
       for_ (readHelper WS.readMessageEvent ev) \msgEvent ->
         for_ (readHelper readString (ME.data_ msgEvent)) \msg ->
-          either (\e -> pure unit) (void <<< launchAff <<< putVar ibuf) (jsonParser msg)
+          either (\e -> pure unit) (void <<< launchAff <<< (flip putVar) ibuf) (jsonParser msg)
     readHelper :: forall a b. (Foreign -> F a) -> b -> Maybe a
     readHelper read =
       either (const Nothing) Just <<< runExcept <<< read <<< toForeign
 
 send :: forall eff. WebSocket -> Json -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) Unit
 send c@(WebSocket sv _ ws) x = do
-  status <- peekVar sv
+  status <- readVar sv
   case status of
     Open -> liftEff $ WS.sendString ws $ stringify x
     Closed -> throwError $ error "Channel is closed"
@@ -99,7 +106,7 @@ send c@(WebSocket sv _ ws) x = do
 receive :: forall eff. WebSocket -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) Json
 receive c@(WebSocket sv ibuf _) = do
   liftEff $ unsafeCoerceEff $ log "4"
-  status <- peekVar sv
+  status <- readVar sv
   liftEff $ unsafeCoerceEff $ log "5"
   case status of
     Open -> takeVar ibuf 
@@ -107,7 +114,7 @@ receive c@(WebSocket sv ibuf _) = do
 
 close :: forall eff. WebSocket -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) Unit
 close (WebSocket sv _ ws) = do
-  status <- peekVar sv
+  status <- readVar sv
   case status of
     Open -> do 
       modifyVar (const Closed) sv 

@@ -2,7 +2,7 @@ module Scribble.Halogen where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
 import Control.Monad.Aff (Aff, delay, finally, attempt)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeVar', putVar, tryTakeVar, takeVar)
+import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, putVar, tryTakeVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (EXCEPTION, error)

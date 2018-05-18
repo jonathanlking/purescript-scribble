@@ -9,7 +9,6 @@
   ],
   "dependencies": {
     "purescript-console": "^3.0.0",
-    "purescript-aff-coroutines": "^5.0.0",
     "purescript-argonaut-codecs": "^3.2.0",
     "purescript-argonaut-core": "^3.1.0",
     "purescript-generics-rep": "^5.1.0",
@@ -18,7 +17,10 @@
     "purescript-symbols": "^3.0.0",
     "purescript-record": "^0.2.6",
     "purescript-dom": "^4.16.0",
-    "purescript-foreign": "^4.0.1"
+    "purescript-foreign": "^4.0.1",
+    "purescript-aff": "^4.0.0",
+    "purescript-halogen": "^3.1.3",
+    "purescript-coroutines": "^4.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
