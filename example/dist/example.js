@@ -5385,23 +5385,19 @@ var PS = {};
               if (v1 instanceof Closed) {
                   return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Channel is closed"));
               };
-              throw new Error("Failed pattern match at Scribble.WebSocket line 102, column 3 - line 106, column 1: " + [ v1.constructor.name ]);
+              throw new Error("Failed pattern match at Scribble.WebSocket line 100, column 3 - line 104, column 1: " + [ v1.constructor.name ]);
           });
       };
   };
   var receive = function (v) {
-      return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("4"))))(function () {
-          return Control_Bind.bind(Control_Monad_Aff.bindAff)(Control_Monad_Aff_AVar.readVar(v.value0))(function (v1) {
-              return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("5"))))(function () {
-                  if (v1 instanceof Open) {
-                      return Control_Monad_Aff_AVar.takeVar(v.value1);
-                  };
-                  if (v1 instanceof Closed) {
-                      return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Channel is closed"));
-                  };
-                  throw new Error("Failed pattern match at Scribble.WebSocket line 111, column 3 - line 115, column 1: " + [ v1.constructor.name ]);
-              });
-          });
+      return Control_Bind.bind(Control_Monad_Aff.bindAff)(Control_Monad_Aff_AVar.readVar(v.value0))(function (v1) {
+          if (v1 instanceof Open) {
+              return Control_Monad_Aff_AVar.takeVar(v.value1);
+          };
+          if (v1 instanceof Closed) {
+              return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Channel is closed"));
+          };
+          throw new Error("Failed pattern match at Scribble.WebSocket line 107, column 3 - line 111, column 1: " + [ v1.constructor.name ]);
       });
   };
   var modifyVar = function (f) {
@@ -5413,8 +5409,8 @@ var PS = {};
   };
   var open = function (url) {
       var readHelper = function (read) {
-          return function ($36) {
-              return Data_Either.either(Data_Function["const"](Data_Maybe.Nothing.value))(Data_Maybe.Just.create)(Control_Monad_Except.runExcept(read(Data_Foreign.toForeign($36))));
+          return function ($35) {
+              return Data_Either.either(Data_Function["const"](Data_Maybe.Nothing.value))(Data_Maybe.Just.create)(Control_Monad_Except.runExcept(read(Data_Foreign.toForeign($35))));
           };
       };
       var receiveListener = function (ibuf) {
@@ -5423,8 +5419,8 @@ var PS = {};
                   return Data_Foldable.for_(Control_Monad_Eff.applicativeEff)(Data_Foldable.foldableMaybe)(readHelper(Data_Foreign.readString)(DOM_Websocket_Event_MessageEvent.data_(msgEvent)))(function (msg) {
                       return Data_Either.either(function (e) {
                           return Control_Applicative.pure(Control_Monad_Eff.applicativeEff)(Data_Unit.unit);
-                      })(function ($37) {
-                          return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Data_Function.flip(Control_Monad_Aff_AVar.putVar)(ibuf)($37)));
+                      })(function ($36) {
+                          return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Data_Function.flip(Control_Monad_Aff_AVar.putVar)(ibuf)($36)));
                       })(Data_Argonaut_Parser.jsonParser(msg));
                   });
               });
@@ -5433,32 +5429,20 @@ var PS = {};
       return Control_Bind.bind(Control_Monad_Aff.bindAff)(Control_Monad_Aff_AVar.makeEmptyVar)(function (v) {
           return Control_Bind.bind(Control_Monad_Aff.bindAff)(Control_Monad_Aff_AVar.makeEmptyVar)(function (v1) {
               return Control_Bind.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Websocket_WebSocket.create(url)([  ])))(function (v2) {
-                  return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("1"))))(function () {
-                      return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onMessage)(receiveListener(v1))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
-                          return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onOpen)(DOM_Event_EventTarget.eventListener(function (v3) {
-                              return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("open"))))(function () {
-                                  return Control_Monad_Aff_AVar.putVar(Open.value)(v);
+                  return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onMessage)(receiveListener(v1))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
+                      return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onOpen)(DOM_Event_EventTarget.eventListener(function (v3) {
+                          return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("open"))))(function () {
+                              return Control_Monad_Aff_AVar.putVar(Open.value)(v);
+                          })));
+                      }))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
+                          return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onClose)(DOM_Event_EventTarget.eventListener(function (v3) {
+                              return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("close"))))(function () {
+                                  return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(modifyVar(Data_Function["const"](Closed.value))(v))(function () {
+                                      return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Connection closed"));
+                                  });
                               })));
                           }))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
-                              return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onClose)(DOM_Event_EventTarget.eventListener(function (v3) {
-                                  return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("close"))))(function () {
-                                      return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(modifyVar(Data_Function["const"](Closed.value))(v))(function () {
-                                          return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Connection closed"));
-                                      });
-                                  })));
-                              }))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
-                                  return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(DOM_Event_EventTarget.addEventListener(DOM_Websocket_Event_EventTypes.onClose)(DOM_Event_EventTarget.eventListener(function (v3) {
-                                      return Data_Functor["void"](Control_Monad_Eff.functorEff)(Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("error"))))(function () {
-                                          return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(modifyVar(Data_Function["const"](Closed.value))(v))(function () {
-                                              return Control_Monad_Error_Class.throwError(Control_Monad_Aff.monadThrowAff)(Control_Monad_Eff_Exception.error("Connection closed"));
-                                          });
-                                      })));
-                                  }))(false)(DOM_Websocket_Types.socketToEventTarget(v2))))(function () {
-                                      return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Unsafe.unsafeCoerceEff(Control_Monad_Eff_Console.log("2"))))(function () {
-                                          return Control_Applicative.pure(Control_Monad_Aff.applicativeAff)(new WebSocket(v, v1, v2));
-                                      });
-                                  });
-                              });
+                              return Control_Applicative.pure(Control_Monad_Aff.applicativeAff)(new WebSocket(v, v1, v2));
                           });
                       });
                   });
@@ -5476,7 +5460,7 @@ var PS = {};
           if (v1 instanceof Closed) {
               return Control_Applicative.pure(Control_Monad_Aff.applicativeAff)(Data_Unit.unit);
           };
-          throw new Error("Failed pattern match at Scribble.WebSocket line 118, column 3 - line 122, column 24: " + [ v1.constructor.name ]);
+          throw new Error("Failed pattern match at Scribble.WebSocket line 114, column 3 - line 118, column 24: " + [ v1.constructor.name ]);
       });
   };
   var transportWebSocket = new Scribble_Core.Transport(close, open, receive, send);
@@ -5713,8 +5697,8 @@ var PS = {};
           return Control_Bind.bind(Control_Monad_Aff.bindAff)(Scribble_Core.receive(Scribble_Protocol_Multiparty_TwoBuyer.receiveS25)(Scribble_WebSocket.transportWebSocket)(Scribble_Protocol_Multiparty_TwoBuyer.decodeJsonContribution)(v.value1))(function (v1) {
               return Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.log("Buyer2: Quoted \xa3" + (Data_Show.show(Data_Show.showInt)(v.value0.value0) + (", with Buyer1 offering \xa3" + Data_Show.show(Data_Show.showInt)(v1.value0.value0))))))(function () {
                   var cont = v.value0.value0 - v1.value0.value0 | 0;
-                  var $91 = cont > 20;
-                  if ($91) {
+                  var $89 = cont > 20;
+                  if ($89) {
                       return Control_Bind.bind(Control_Monad_Aff.bindAff)(Scribble_Core.select(Scribble_Protocol_Multiparty_TwoBuyer.selectS26)(Scribble_Protocol_Multiparty_TwoBuyer.roleNameBuyer1)(new Data_Symbol.IsSymbol(function () {
                           return "Buyer1";
                       }))(Scribble_WebSocket.transportWebSocket)(Scribble_Core.elemHead)(new Data_Symbol.IsSymbol(function () {
@@ -5808,19 +5792,13 @@ var PS = {};
           });
       });
   });
-  var main = Control_Monad_Aff.launchAff(Control_Bind.discard(Control_Bind.discardUnit)(Control_Monad_Aff.bindAff)(Control_Parallel_Class.sequential(Control_Monad_Aff.parallelAff)(Control_Apply.apply(Control_Monad_Aff.applyParAff)(Data_Functor.map(Control_Monad_Aff.functorParAff)(function (v) {
+  var main = Control_Monad_Aff.launchAff(Control_Parallel_Class.sequential(Control_Monad_Aff.parallelAff)(Control_Apply.apply(Control_Monad_Aff.applyParAff)(Control_Apply.apply(Control_Monad_Aff.applyParAff)(Data_Functor.map(Control_Monad_Aff.functorParAff)(function (v) {
       return function (v1) {
-          return Data_Unit.unit;
-      };
-  })(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(prog(5))))(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(runServer))))(function () {
-      return Control_Parallel_Class.sequential(Control_Monad_Aff.parallelAff)(Control_Apply.apply(Control_Monad_Aff.applyParAff)(Control_Apply.apply(Control_Monad_Aff.applyParAff)(Data_Functor.map(Control_Monad_Aff.functorParAff)(function (v) {
-          return function (v1) {
-              return function (v2) {
-                  return Data_Unit.unit;
-              };
+          return function (v2) {
+              return Data_Unit.unit;
           };
-      })(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(buyer1)))(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(buyer2)))(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(seller)));
-  }));
+      };
+  })(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(buyer1)))(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(buyer2)))(Control_Parallel_Class.parallel(Control_Monad_Aff.parallelAff)(seller))));
   exports["buyer1"] = buyer1;
   exports["buyer2"] = buyer2;
   exports["fib"] = fib;
