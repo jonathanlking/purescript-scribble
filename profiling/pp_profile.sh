@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage: profile.sh | tee results.csv
+# Usage: pp_profile.sh | tee results.csv
 
 FN="Large.scr"
 TEMPLATE="UnrolledPingPong.purs"
