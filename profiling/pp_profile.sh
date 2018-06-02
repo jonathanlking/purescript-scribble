@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# Unrolled PingPong
 # Usage: pp_profile.sh | tee results.csv
 
 FN="Large.scr"
@@ -10,10 +10,11 @@ echo "States, Wall clock time, User time, System time, Memory (kbytes)"
 
 for ((s=1; s<=3; s++))
 do
-  for ((i=1; i<=500; i+=10))
+  for ((i=1; i<=450; i+=10))
   do
      rm -f $FN
-     rm -f src/Main.pure
+     rm -rf src
+     mkdir src
 
      echo $'module Large;\n\nglobal protocol UnrolledPingPong(role Client, role Server) {' > $FN
      cat $TEMPLATE > src/Main.purs

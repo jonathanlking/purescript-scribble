@@ -12,23 +12,25 @@ import DOM.Websocket.WebSocket as WS
 import Data.Argonaut.Core (Json)
 import Data.Symbol (SProxy(SProxy))
 import Data.Tuple (Tuple(..))
-import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), (<<<), (<=), (>), min, unit, (<>))
+import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), (<<<), (<=), (>), min, unit, (>>=))
 import Data.Functor ((<$>))
 import Scribble.Core as SC
 import Scribble.FSM (Protocol(..), Role(..))
-import Scribble.Protocol.Large.UnrolledPingPong as UPP
+import Scribble.Protocol.Large.ManyBranches as MB
 import Scribble.WebSocket (WebSocket)
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 
 main = pure unit
 
-uppServer :: forall eff. Aff (SC.TransportEffects eff) Unit
-uppServer
+mbServer :: forall eff. Aff (SC.TransportEffects eff) Unit
+mbServer
   = SC.multiSession
         (Proxy :: Proxy WebSocket)
         (WS.URL $ "ws://127.0.0.1:9160") 
-        (Protocol :: Protocol UPP.UnrolledPingPong) 
-        (Tuple (Role :: Role UPP.Server)
-        (SC.Identifier "Server"))
-        {"Client": SC.Identifier "Client"} $ \c -> do
+        (Protocol :: Protocol MB.ManyBranches) 
+        (Tuple (Role :: Role MB.Client)
+        (SC.Identifier "Client"))
+        {"Server": SC.Identifier "Server"} $ \c -> do
+          c <- SC.select c (SProxy :: SProxy "b1")
+          SC.send c MB.B1
