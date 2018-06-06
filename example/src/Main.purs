@@ -16,6 +16,7 @@ import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), 
 import Data.Functor ((<$>))
 import Scribble.Core as SC
 import Scribble.FSM (Protocol(..), Role(..))
+import Scribble.Protocol.Arithmetic.AdditionServer as AS
 import Scribble.Protocol.Arithmetic.MathServer as MS
 import Scribble.Protocol.Multiparty.TwoBuyer as TB
 import Scribble.WebSocket (WebSocket)
@@ -170,3 +171,15 @@ server c
             c <- SC.send c (MS.Product (x * y))
             server c)
         }
+
+
+-- additionServer :: forall eff. Aff (SC.TransportEffects eff) Unit
+-- additionServer
+--   = SC.multiSession
+--         (Proxy :: Proxy WebSocket)
+--         (WS.URL $ "ws://127.0.0.1:9160") 
+--         (Protocol :: Protocol AS.AdditionServer) 
+--         (Tuple (Role :: Role AS.Server)
+--         (SC.Identifier "Nick"))
+--         {"Client": SC.Identifier "Jonathan"}
+--         ?s

@@ -10,7 +10,7 @@ echo "Branches, Wall clock time, User time, System time, Memory (kbytes)"
 
 for ((s=1; s<=3; s++))
 do
-  for ((i=2; i<=15; i+=1))
+  for ((i=2; i<=100; i+=10))
   do
      rm -f $FN
      rm -rf src
@@ -24,6 +24,10 @@ do
      do
        echo $'  } or {\n    B'$j'() from Client to Server;' >> $FN
      done
+
+     cat $TEMPLATE > src/Main.purs
+     echo '          c <- SC.select c (SProxy :: SProxy "b'$i'")' >> src/Main.purs
+     echo '          SC.send c MB.B'$i >> src/Main.purs
 
      echo $'  }\n}' >> $FN
 

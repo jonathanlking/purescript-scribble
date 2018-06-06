@@ -71,6 +71,9 @@ instance sendS9Multiply :: Send Server S9Multiply S12 Multiply
 instance sendS9Quit :: Send Server S9Quit S10 Quit
 instance selectS9 :: Select Server S9 (Cons "multiply" S9Multiply (Cons "quit" S9Quit (Cons "add" S9Add Nil)))
 instance receiveS11 :: Receive Server S11 S9 Sum
+instance sendS11 ::
+     Fail "You can only receive in this state"
+  => Send r S11 t a
 instance receiveS12 :: Receive Server S12 S9 Product
 
 foreign import data Server :: Role

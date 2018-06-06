@@ -207,6 +207,9 @@ instance functionCons :: Functions m tail c u tail'
 class Elem (list :: RowList) (l :: Symbol) e | l -> e
 instance elemHead :: Elem (Cons l e tail) l e
 instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e
+instance elemEmpty :: 
+     Fail (TypeConcat (TypeConcat "'" l) "' is not a supported choice") 
+  => Elem Nil l e 
 
 choice :: forall r c s ts u funcs row eff p.
      Branch r s ts

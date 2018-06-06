@@ -15,3 +15,13 @@ global protocol MathServer(role Client, role Server) {
         Quit() from Client to Server;
     }
 }
+
+global protocol AdditionServer(role Client, role Server) {
+    choice at Client { 
+        Add(Int, Int) from Client to Server;
+        Res(Int) from Server to Client;
+        do AdditionServer(Client, Server);
+    } or {
+        Bye() from Client to Server;
+    }
+}

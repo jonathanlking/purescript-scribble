@@ -32,5 +32,3 @@ mbServer
         (Tuple (Role :: Role MB.Client)
         (SC.Identifier "Client"))
         {"Server": SC.Identifier "Server"} $ \c -> do
-          c <- SC.select c (SProxy :: SProxy "b1")
-          SC.send c MB.B1
