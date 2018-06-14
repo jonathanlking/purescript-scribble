@@ -15,6 +15,7 @@ import Data.Tuple (Tuple(..))
 import Prelude (Unit, bind, discard, otherwise, pure, show, ($), (*), (+), (-), (<<<), (<=), (>), min, unit, (<>))
 import Data.Functor ((<$>))
 import Scribble.Core as SC
+import Scribble.Indexed as SI
 import Scribble.FSM (Protocol(..), Role(..))
 import Scribble.Protocol.Arithmetic.AdditionServer as AS
 import Scribble.Protocol.Arithmetic.MathServer as MS
@@ -22,6 +23,7 @@ import Scribble.Protocol.Multiparty.TwoBuyer as TB
 import Scribble.WebSocket (WebSocket)
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
+import Control.Monad.Aff.AVar as AV
 
 main = launchAff $ do
   -- Run the Arithmetic example
@@ -38,38 +40,67 @@ main = launchAff $ do
 
 -- Examples for the Two-Buyer protocol
 
-buyer1 :: forall eff. Aff (SC.TransportEffects (console :: CONSOLE | eff)) Unit
-buyer1 = SC.multiSession
+-- buyer1 :: forall eff. Aff (SC.TransportEffects (console :: CONSOLE | eff)) Unit
+-- buyer1 = SC.multiSession
+--   (Proxy :: Proxy WebSocket)
+--   (WS.URL $ "ws://127.0.0.1:9160")
+--   (Protocol :: Protocol TB.TwoBuyer)
+--   (Tuple (Role :: Role TB.Buyer1) (SC.Identifier "Billy"))
+--   {"Buyer2": SC.Identifier "Bob", "Seller": SC.Identifier "Sally"}
+--   (\c -> do
+--     c <- SC.send c (TB.Book "War and Peace")
+--     (Tuple (TB.Quote price) c) <- SC.receive c
+--     liftEff $ log $ "Buyer1: Quoted £" <> show price
+--     -- Buyer1 can contribute a maximum of £10
+--     let cont = min 10 price
+--     c <- SC.send c (TB.Contribution cont)
+--     SC.choice c { agree: \c -> do
+--       (Tuple TB.Agree c) <- SC.receive c
+--       liftEff $ log $ "Buyer1: Buyer2 agreed!"
+--       SC.send c (TB.Transfer cont) 
+--                 , quit: \c -> do
+--       (Tuple TB.Quit c) <- SC.receive c
+--       liftEff $ log $ "Buyer1: Buyer2 quit!"
+--       pure c
+--                 }
+--   )
+
+-- Example using indexed monad API
+buyer1 :: forall eff. Aff (SI.TransportEffects (console :: CONSOLE | eff)) Unit
+buyer1 = SI.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160")
   (Protocol :: Protocol TB.TwoBuyer)
-  (Tuple (Role :: Role TB.Buyer1) (SC.Identifier "Jonathan"))
-  {"Buyer2": SC.Identifier "Nick", "Seller": SC.Identifier "Nobuko"}
-  (\c -> do
-    c <- SC.send c (TB.Book "War and Peace")
-    (Tuple (TB.Quote price) c) <- SC.receive c
-    liftEff $ log $ "Buyer1: Quoted £" <> show price
-    -- Buyer1 can contribute a maximum of £10
-    let cont = min 10 price
-    c <- SC.send c (TB.Contribution cont)
-    SC.choice c { agree: \c -> do
-      (Tuple TB.Agree c) <- SC.receive c
-      liftEff $ log $ "Buyer1: Buyer2 agreed!"
-      SC.send c (TB.Transfer cont) 
-                , quit: \c -> do
-      (Tuple TB.Quit c) <- SC.receive c
-      liftEff $ log $ "Buyer1: Buyer2 quit!"
-      pure c
-                }
-  )
+  (Tuple (Role :: Role TB.Buyer1) (SI.Identifier "Billy"))
+  {"Buyer2": SI.Identifier "Bob", "Seller": SI.Identifier "Sally"}
+  $ do
+      SI.send (TB.Book "War and Peace")
+      TB.Quote price <- SI.receive
+      SI.aff $ liftEff $ log $ "Buyer1: Quoted £" <> show price
+      -- Buyer1 can contribute a maximum of £10
+      let cont = min 10 price
+      SI.send (TB.Contribution cont)
+      SI.choice {
+        agree: do
+        TB.Agree <- SI.receive 
+        SI.aff $ liftEff $ log $ "Buyer1: Buyer2 agreed!"
+        SI.send (TB.Transfer cont)
+      , quit: do
+        TB.Quit <- SI.receive
+        SI.aff $ liftEff $ log $ "Buyer1: Buyer2 quit!"
+      }
+  where
+    bind = SI.(:>>=)
+    pure = (SI.ipure)
+    discard = bind
 
 buyer2 :: forall eff. Aff (SC.TransportEffects (console :: CONSOLE | eff)) Unit
 buyer2 = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160")
   (Protocol :: Protocol TB.TwoBuyer)
-  (Tuple (Role :: Role TB.Buyer2) (SC.Identifier "Nick"))
-  {"Buyer1": SC.Identifier "Jonathan", "Seller": SC.Identifier "Nobuko"}
+  (Tuple (Role :: Role TB.Buyer2) (SC.Identifier "Bob"))
+  {"Buyer1": SC.Identifier "Billy", "Seller": SC.Identifier "Sally"}
   (\c -> do
     (Tuple (TB.Quote price) c) <- SC.receive c
     (Tuple (TB.Contribution amount) c) <- SC.receive c
@@ -94,8 +125,8 @@ seller = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160")
   (Protocol :: Protocol TB.TwoBuyer)
-  (Tuple (Role :: Role TB.Seller) (SC.Identifier "Nobuko"))
-  {"Buyer1": SC.Identifier "Jonathan", "Buyer2": SC.Identifier "Nick"}
+  (Tuple (Role :: Role TB.Seller) (SC.Identifier "Sally"))
+  {"Buyer1": SC.Identifier "Billy", "Buyer2": SC.Identifier "Bob"}
   (\c -> do
     (Tuple (TB.Book name) c) <- SC.receive c
     liftEff $ log $ "Seller: \"" <> name <> "\" requested"
@@ -126,8 +157,8 @@ prog n
         (WS.URL $ "ws://127.0.0.1:9160") 
         (Protocol :: Protocol MS.MathServer) 
         (Tuple (Role :: Role MS.Client)
-        (SC.Identifier "Jonathan")) 
-        {"Server": SC.Identifier "Nick"} 
+        (SC.Identifier "Billy")) 
+        {"Server": SC.Identifier "Bob"} 
         (\c -> do
             (Tuple x c) <- fib n c
             liftEff $ log $ show x
@@ -141,8 +172,8 @@ runServer
         (WS.URL $ "ws://127.0.0.1:9160") 
         (Protocol :: Protocol MS.MathServer) 
         (Tuple (Role :: Role MS.Server)
-        (SC.Identifier "Nick"))
-        {"Client": SC.Identifier "Jonathan"}
+        (SC.Identifier "Bob"))
+        {"Client": SC.Identifier "Billy"}
         server
 
 fib :: forall eff. Int -> SC.Channel WebSocket MS.S9 -> Aff (SC.TransportEffects eff) (Tuple Int (SC.Channel WebSocket MS.S9))
@@ -171,15 +202,3 @@ server c
             c <- SC.send c (MS.Product (x * y))
             server c)
         }
-
-
--- additionServer :: forall eff. Aff (SC.TransportEffects eff) Unit
--- additionServer
---   = SC.multiSession
---         (Proxy :: Proxy WebSocket)
---         (WS.URL $ "ws://127.0.0.1:9160") 
---         (Protocol :: Protocol AS.AdditionServer) 
---         (Tuple (Role :: Role AS.Server)
---         (SC.Identifier "Nick"))
---         {"Client": SC.Identifier "Jonathan"}
---         ?s

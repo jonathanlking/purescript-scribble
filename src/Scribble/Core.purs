@@ -8,7 +8,7 @@ import Control.Monad.Error.Class (throwError)
 import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Coroutine as CR
 import Data.Tuple (Tuple(..))
-import Prelude (class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=))
+import Prelude (class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=), map)
 import Control.Apply ((*>))
 import Control.Monad.Eff (kind Effect, Eff)
 import Type.Row (class ListToRow, Cons, Nil, kind RowList, RLProxy(RLProxy))
@@ -50,7 +50,9 @@ data Channel c s = Channel c (AVar (List Json)) (AVar Unit)
 
 -- | Runtime linearity check - will throw an error if a chanel is used multiple
 -- | times. Returns a new chanel with the usage reset.
-checkLinearity :: forall c s t eff. Channel c s -> Aff (TransportEffects eff) (Channel c t)
+checkLinearity :: forall c s t eff.
+     Channel c s 
+  -> Aff (TransportEffects eff) (Channel c t)
 checkLinearity (Channel c bv v) = do
   r <- tryTakeVar v
   case r of

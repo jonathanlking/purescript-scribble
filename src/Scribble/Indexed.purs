@@ -40,6 +40,7 @@ import Control.Bind
 import Control.Monad
 import Control.Applicative
 import Unsafe.Coerce (unsafeCoerce)
+import Scribble.Core (class Transport, uOpen, uClose, uSend, uReceive)
 
 -- TODO: Really shouldn't be here... (fix row/set effect issue)
 import DOM (DOM)
@@ -53,7 +54,7 @@ class IxMonad m where
   ipure ∷ ∀ a x. a → m x x a
   ibind ∷ ∀ a b x y z. m x y a → (a → m y z b) → m x z b
 
-infixl 1 ibind as :>>=
+infixr 1 ibind as :>>=
 
 instance sessionIxMonad :: IxMonad (Session c eff) where
   ipure x = Session (\c -> pure (Tuple c x))
@@ -82,17 +83,8 @@ instance sessionMonad :: Monad (Session c eff i i)
 instance sessionMonadEff :: MonadEff eff (Session c eff i i) where
   liftEff eff = Session (\c -> map (Tuple c) (liftEff eff))
 
-liftAff :: forall c eff i a. Aff eff a -> Session c eff i i a
-liftAff aff = Session (\c -> map (Tuple c) aff)
-
--- | An asynchronous untyped communication layer
--- | Only values of 'primative' type a can be communicated
--- | A new chanel can be created using parameters p
-class Transport c p | c -> p where
-  uSend     :: forall eff. c -> Json -> Aff (TransportEffects eff) Unit
-  uReceive  :: forall eff. c -> Aff (TransportEffects eff) Json
-  uOpen     :: forall eff. p -> Aff (TransportEffects eff) c
-  uClose    :: forall eff. c -> Aff (TransportEffects eff) Unit
+aff :: forall c eff i a. Aff eff a -> Session c eff i i a
+aff a = Session (\c -> map (Tuple c) a)
 
 data Channel c s = Channel c (AVar (List Json))
 
