@@ -10,7 +10,7 @@ echo "States, Wall clock time, User time, System time, Memory (kbytes)"
 
 for ((s=1; s<=3; s++))
 do
-  for ((i=300; i<=450; i+=10))
+  for ((i=1; i<=450; i+=10))
   do
      rm -f $FN
      rm -rf src

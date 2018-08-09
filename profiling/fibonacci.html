@@ -56,7 +56,7 @@ function open(chan) {
 
 // The program
 (async () => {
-    var socket = new WebSocket("ws://localhost:9160");
+    var socket = new WebSocket("ws://localhost:9161");
     var init = {in: inputStream(socket), sock: socket};
     await open(init);
     let start = window.performance.now();

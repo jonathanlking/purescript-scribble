@@ -99,7 +99,7 @@ buyer2 = SC.multiSession
   (Proxy :: Proxy WebSocket)
   (WS.URL $ "ws://127.0.0.1:9160")
   (Protocol :: Protocol TB.TwoBuyer)
-  (Tuple (Role :: Role TB.Buyer2) (SC.Identifier "Bob"))
+  (Tuple (Role :: Role TB.Buyer1) (SC.Identifier "Bob"))
   {"Buyer1": SC.Identifier "Billy", "Seller": SC.Identifier "Sally"}
   (\c -> do
     (Tuple (TB.Quote price) c) <- SC.receive c
@@ -186,6 +186,38 @@ fib n c
      c <- SC.send c (MS.Add x y)
      (Tuple (MS.Sum s) c) <- SC.receive c
      pure (Tuple s c)
+
+--fib' :: forall eff. Int -> SI.Session WebSocket (SC.TransportEffects eff) MS.S9 MS.S9 Int
+--fib' n
+--  | n <= 1    = SI.ipure 1
+--  | otherwise = (fib' (n -1)
+--    `bind` \x -> )
+----    do
+----     x <- fib' (n - 1)
+----     y <- fib' (n - 2)
+----     SI.select (SProxy :: SProxy "add")
+----     SI.send (MS.Add x y)
+----     MS.Sum s <- SI.receive
+----     pure s
+--  where
+--    bind = SI.(:>>=)
+--    pure = (SI.ipure)
+--    discard = bind
+
+-- fib' :: forall eff. Int -> SI.Session WebSocket (SC.TransportEffects eff) MS.S9 MS.S9 Int
+-- fib' n
+--   | n <= 1    = pure 1
+--   | otherwise = do
+--      x <- fib' (n - 1)
+--      y <- fib' (n - 2)
+--      SI.select (SProxy :: SProxy "add")
+--      SI.send (MS.Add x y)
+--      MS.Sum s <- SI.receive
+--      pure s
+--   where
+--     bind = SI.(:>>=)
+--     pure = (SI.ipure)
+--     discard = bind
 
 server :: forall eff. SC.Channel WebSocket MS.S20 -> Aff (SC.TransportEffects eff) (SC.Channel WebSocket MS.S21)
 server c

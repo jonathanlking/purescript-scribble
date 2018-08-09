@@ -49,16 +49,22 @@ type TransportEffects eff = (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | 
 
 newtype Session c eff i t a = Session ((Channel c i) -> Aff eff (Tuple (Channel c t) a))
 
+newtype IxStateT m i j a = IxStateT (i -> m (Tuple a j))
+type Session' c eff i t a = IxStateT (Aff eff) (Channel c i) (Channel c t) a
+
 -- From purescript-indexed-monad
 class IxMonad m where
   ipure ∷ ∀ a x. a → m x x a
   ibind ∷ ∀ a b x y z. m x y a → (a → m y z b) → m x z b
 
-infixr 1 ibind as :>>=
+infixl 1 ibind as :>>=
 
 instance sessionIxMonad :: IxMonad (Session c eff) where
   ipure x = Session (\c -> pure (Tuple c x))
-  ibind (Session s) f = Session (\c -> (s c) >>= (\(Tuple c' x) -> case f x of (Session s') -> s' c'))
+  ibind (Session s) f
+    = Session (\c -> (s c) 
+        >>= (\(Tuple c' x) -> case f x of
+          (Session s') -> s' c'))
 
 instance sessionFunctor :: Functor (Session c eff i i) where
   map f (Session s) = Session (\c -> map (\(Tuple _ x) -> Tuple c $ f x) $ s c)

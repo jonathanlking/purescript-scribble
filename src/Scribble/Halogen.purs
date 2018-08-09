@@ -51,11 +51,12 @@ halogenSession :: forall r n c ps s t q m eff.
   -> Role r
   -> ps
   -> (q ~> Aff (TransportEffects (eff))) 
+  -> (Error -> Aff (TransportEffects eff) Unit)
   -> (Channel c s -> Consumer m (Aff (TransportEffects (eff))) (Channel c t))
   -> Consumer m (Aff (TransportEffects (eff))) Unit
-halogenSession _ r params query prog = do
+halogenSession _ r params query handler prog = do
   (c :: Channel c s) <- lift $ open r params
-  c' <- prog c
+  c' <- hoistFreeT (paranoid handler) (prog c)
   lift $ close r c'
 
 paranoid :: forall eff. (Error -> Aff (TransportEffects eff) Unit) -> Aff (TransportEffects eff) ~> Aff (TransportEffects eff)

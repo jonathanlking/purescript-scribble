@@ -89,7 +89,8 @@ send :: forall r rn c a s t eff p.
   => Channel c s -> a -> Aff (TransportEffects eff) (Channel c t)
 send c@(Channel t _ _) x = do
   c' <- checkLinearity c 
-  uSend t $ encodeMessage (Role :: Role r) (encodeJson x)
+--  uSend t $ encodeMessage (Role :: Role r) (encodeJson x)
+  uSend t $ (encodeJson x)
   pure c'
 
 receive :: forall r c a s t eff p. 
@@ -206,7 +207,7 @@ instance functionCons :: Functions m tail c u tail'
   => Functions m (Cons label t tail) c u (Cons label (c t -> m u) tail')
 
 -- | Constraint to assert element membership in RowList
-class Elem (list :: RowList) (l :: Symbol) e | l -> e
+class Elem (list :: RowList) (l :: Symbol) e | list l -> e
 instance elemHead :: Elem (Cons l e tail) l e
 instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e
 instance elemEmpty :: 
@@ -236,11 +237,11 @@ choice c@(Channel ch bv _) row = do
 
 select :: forall r rn c s ts t label eff p.
      Select r s ts
-  => RoleName r rn
-  => IsSymbol rn
-  => Transport c p
+--  => RoleName r rn
+--  => IsSymbol rn
+--  => Transport c p
   => Elem ts label t
-  => IsSymbol label
+--  => IsSymbol label
   => Channel c s -> SProxy label -> Aff (TransportEffects eff) (Channel c t)
 select c@(Channel t _ _) l = do
   c' <- checkLinearity c
