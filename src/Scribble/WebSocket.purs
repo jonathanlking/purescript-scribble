@@ -2,40 +2,36 @@ module Scribble.WebSocket where
 
 import Scribble.Core
 
-import DOM (DOM)
-import DOM.Event.EventTarget as EET
-import DOM.Websocket.Event.EventTypes as WSET
-import DOM.Websocket.Event.MessageEvent as ME
-import DOM.Websocket.WebSocket as WS
-import DOM.Websocket.Types (URL)
-import Control.Monad.Eff.Class (liftEff)
+import Web.Event.EventTarget as EET
+import Web.Socket.Event.EventTypes as WSET
+import Web.Socket.Event.MessageEvent as ME
+import Web.Socket.WebSocket as WS
+import Effect.Class (liftEffect)
 
 import Control.Coroutine as CR
-import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Except (runExcept)
 import Data.Either (Either(..), either)
 import Data.Foldable (for_)
-import Data.Foreign (F, Foreign, toForeign, readString)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Exception (EXCEPTION, error)
+import Foreign (F, Foreign, toForeign, readString)
+import Effect.Exception (error)
 import Control.Monad.Error.Class (throwError)
 
 import Data.Maybe (Maybe(..))
 import Prelude (Unit, const, pure, unit, ($), (<<<), bind, discard, void, (>>=), (>>>), flip)
 
 import Data.Functor ((<$>))
-import Control.Monad.Aff (Aff)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Parser (jsonParser)
 
-import Control.Monad.Aff (Aff, delay, launchAff, forkAff)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeEmptyVar, putVar, readVar, takeVar)
+import Effect.Aff (Aff, delay, launchAff, forkAff)
+import Effect.AVar (AVar, makeVar, makeEmptyVar, putVar, readVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Console (log)
+import Effect.Class.Console (log)
 data Status = Open | Closed
+
+data URL = URL String
 
 data WebSocket = WebSocket (AVar Status) (AVar Json) WS.WebSocket
 
@@ -51,35 +47,35 @@ open :: forall eff. URL -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION
 open url = do
   status <- makeEmptyVar
   ibuf <- makeEmptyVar
-  socket <- liftEff $ WS.create url []
+  socket <- liftEffect $ WS.create url []
   -- Add the listener for receiving messages
-  liftEff $ EET.addEventListener
+  liftEffect $ EET.addEventListener
     WSET.onMessage
     (receiveListener ibuf)
     false
     (WS.socketToEventTarget socket)
   -- Add the listener for the connection opening
-  liftEff $ EET.addEventListener
+  liftEffect $ EET.addEventListener
     WSET.onOpen
     (EET.eventListener \_ -> void $ launchAff $ do
-      liftEff $ unsafeCoerceEff $ log "open"
+      liftEffect $ log "open"
       putVar Open status)
     false
     (WS.socketToEventTarget socket)
   -- Add the listener for the connection closing
-  liftEff $ EET.addEventListener
+  liftEffect $ EET.addEventListener
     WSET.onClose
     (EET.eventListener \_ -> void $ launchAff $ do
-      liftEff $ unsafeCoerceEff $ log "close"
+      liftEffect $ log "close"
       modifyVar (const Closed) status
       throwError $ error "Connection closed")
     false
     (WS.socketToEventTarget socket)
   -- Add the listener for a connection error
---  liftEff $ EET.addEventListener
+--  liftEffect $ EET.addEventListener
 --    WSET.onClose
 --    (EET.eventListener \_ -> void $ launchAff $ do
---      liftEff $ unsafeCoerceEff $ log "error"
+--      liftEffect $ log "error"
 --      modifyVar (const Closed) status
 --      throwError $ error "Connection closed")
 --    false
@@ -98,7 +94,7 @@ send :: forall eff. WebSocket -> Json -> Aff (dom :: DOM, avar :: AVAR, exceptio
 send c@(WebSocket sv _ ws) x = do
   status <- readVar sv
   case status of
-    Open -> liftEff $ WS.sendString ws $ stringify x
+    Open -> liftEffect $ WS.sendString ws $ stringify x
     Closed -> throwError $ error "Channel is closed"
 
 receive :: forall eff. WebSocket -> Aff (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff) Json
@@ -114,7 +110,7 @@ close (WebSocket sv _ ws) = do
   case status of
     Open -> do 
       modifyVar (const Closed) sv 
-      liftEff $ WS.close ws
+      liftEffect $ WS.close ws
     Closed -> pure unit
 
 instance transportWebSocket :: Transport WebSocket URL where

@@ -1,38 +1,36 @@
 module Scribble.Indexed where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
-import Control.Monad.Aff (Aff, delay)
-import Control.Monad.Aff.AVar (AVAR, AVar, makeVar, makeEmptyVar, putVar, tryTakeVar, takeVar)
+import Effect.Aff (Aff, delay)
+import Effect.AVar (AVar, makeVar, makeEmptyVar, putVar, tryTakeVar, takeVar)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
-import Control.Monad.Eff.Exception (EXCEPTION, error)
+import Effect.Exception (error)
 import Control.Coroutine as CR
 import Data.Tuple (Tuple(..))
 import Prelude (class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=), map)
 import Control.Apply ((*>))
-import Control.Monad.Eff (kind Effect, Eff)
 import Type.Row (class ListToRow, Cons, Nil, kind RowList, RLProxy(RLProxy))
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
-import Data.Record.Unsafe (unsafeGet, unsafeHas)
+import Record.Unsafe (unsafeGet, unsafeHas)
 import Control.Monad.Trans.Class (lift)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 import Data.Argonaut.Core (Json, fromArray, fromObject, fromString, toObject, toString)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
-import Control.Monad.Eff.Class (liftEff)
+import Effect.Class (liftEff)
 import Scribble.Type.SList as SList
 import Data.List (List, (:))
 import Data.Monoid (mempty)
-import Data.StrMap (fromFoldable, lookup)
+import Foreign.Object (fromFoldable, lookup)
 import Data.Array as Array
 import Type.Proxy (Proxy)
 import Data.String (toLower)
 import Data.List.Types (List(..))
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Console (log)
+import Effect.Class.Console (log)
 
-import Control.Monad.Eff.Class
+import Effect.Class
 import Data.Functor
 import Control.Apply
 import Data.Tuple (snd)
@@ -41,9 +39,6 @@ import Control.Monad
 import Control.Applicative
 import Unsafe.Coerce (unsafeCoerce)
 import Scribble.Core (class Transport, uOpen, uClose, uSend, uReceive)
-
--- TODO: Really shouldn't be here... (fix row/set effect issue)
-import DOM (DOM)
 
 type TransportEffects eff = (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff)
 

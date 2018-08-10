@@ -8,7 +8,9 @@
     "output"
   ],
   "dependencies": {
+    "purescript-prelude": "^4.1.0",
     "purescript-console": "^4.1.0",
+    "purescript-effect": "^2.0.0",
     "purescript-argonaut-codecs": "^4.0.2",
     "purescript-argonaut-core": "^4.0.1",
     "purescript-generics-rep": "^6.0.0",
@@ -16,6 +18,8 @@
     "purescript-typelevel-prelude": "^3.0.0",
     "purescript-record": "^1.0.0",
     "purescript-web-dom": "^1.0.0",
+    "purescript-web-socket": "^1.0.0",
+    "purescript-web-events": "^1.0.0",
     "purescript-foreign": "^5.0.0",
     "purescript-aff": "^5.0.1",
     "purescript-halogen": "^4.0.0",

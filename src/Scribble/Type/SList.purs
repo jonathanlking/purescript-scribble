@@ -4,7 +4,7 @@ module Scribble.Type.SList where
 -- from purescript-record-extra (by Justin Woo)
 
 import Prelude (class Show, show)
-import Data.Record (delete, get)
+import Record (delete, get)
 import Data.Tuple (Tuple(..))
 import Data.List (List, (:))
 import Data.Monoid (mempty)
