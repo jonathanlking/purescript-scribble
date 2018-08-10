@@ -1,44 +1,25 @@
 module Scribble.Halogen where
 
-import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
-import Effect.Aff (Aff, delay, finally, attempt)
-import Effect.Aff.AVar (AVar, new, empty, put, read, take)
-import Data.Time.Duration (Milliseconds(..))
+import Scribble.FSM (class Initial, class ProtocolName, class ProtocolRoleNames, class RoleName, class Terminal, Protocol, Role)
+import Effect.Aff (Aff, attempt)
 import Control.Monad.Error.Class (throwError)
 import Control.Coroutine (Consumer)
 import Data.Tuple (Tuple(..))
 import Prelude --(class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=))
-import Control.Apply ((*>))
-import Type.Row (class ListToRow, Cons, Nil, kind RowList, RLProxy(RLProxy))
+import Type.Row (class ListToRow, kind RowList, RLProxy(RLProxy))
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
-import Record.Unsafe (unsafeGet, unsafeHas)
 import Control.Monad.Trans.Class (lift)
-import Data.Argonaut.Decode (class DecodeJson, decodeJson)
-import Data.Argonaut.Encode (class EncodeJson, encodeJson)
-import Data.Argonaut.Core (Json, fromArray, fromObject, fromString, toObject, toString)
-import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), maybe)
-import Effect.Class (liftEffect)
+import Data.Argonaut.Core (fromString)
 import Scribble.Type.SList as SList
-import Data.List (List, (:))
-import Data.Monoid (mempty)
-import Foreign.Object (fromFoldable, lookup)
-import Data.Array as Array
+import Data.List ((:))
 import Type.Proxy (Proxy)
-import Data.String (toLower)
-import Data.List.Types (List(..))
-import Scribble.Core
-import Halogen.Aff as HA
-import Control.Monad.Free.Trans (FreeT)
-import Unsafe.Coerce (unsafeCoerce)
+import Scribble.Core (class Transport, Channel(..), Identifier, close, encodeReq, open, uReceive, uSend)
 import Control.Monad.Free.Trans (hoistFreeT)
-import Effect.Class.Console (log)
-import Data.Either (Either(..), either)
-import Effect.Exception (Error, error)
-import Control.Monad.Error.Class (throwError)
+import Data.Either (Either(..))
+import Effect.Exception (Error)
 
 -- | Designed for a binary session (with direct communication)
-halogenSession :: forall r n c ps s t q m eff.
+halogenSession :: forall r n c ps s t q m.
      Transport c ps
   => Initial r s
   => Terminal r t
@@ -56,7 +37,7 @@ halogenSession _ r params query handler prog = do
   c' <- hoistFreeT (paranoid handler) (prog c)
   lift $ close r c'
 
-paranoid :: forall eff. (Error -> Aff Unit) -> Aff ~> Aff
+paranoid :: (Error -> Aff Unit) -> Aff ~> Aff
 paranoid h x = do
   r <- attempt x
   case r of
@@ -66,7 +47,7 @@ paranoid h x = do
     Right a -> pure a
 
 -- | Initialise a multiparty session using the proxy server
-halogenMultiSession :: forall r rn p pn rns rns' list row s t c ps q m eff.
+halogenMultiSession :: forall r rn p pn rns rns' list row s t c ps q m.
      RoleName r rn 
   => IsSymbol rn
   => ProtocolName p pn
