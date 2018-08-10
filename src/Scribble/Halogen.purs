@@ -2,7 +2,7 @@ module Scribble.Halogen where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
 import Effect.Aff (Aff, delay, finally, attempt)
-import Effect.AVar (AVar, makeVar, putVar, tryTakeVar, takeVar)
+import Effect.Aff.AVar (AVar, new, empty, put, read, take)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
 import Control.Coroutine (Consumer)
@@ -18,7 +18,7 @@ import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 import Data.Argonaut.Core (Json, fromArray, fromObject, fromString, toObject, toString)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
-import Effect.Class (liftEff)
+import Effect.Class (liftEffect)
 import Scribble.Type.SList as SList
 import Data.List (List, (:))
 import Data.Monoid (mempty)
@@ -47,16 +47,16 @@ halogenSession :: forall r n c ps s t q m eff.
   => Proxy c
   -> Role r
   -> ps
-  -> (q ~> Aff (TransportEffects (eff))) 
-  -> (Error -> Aff (TransportEffects eff) Unit)
-  -> (Channel c s -> Consumer m (Aff (TransportEffects (eff))) (Channel c t))
-  -> Consumer m (Aff (TransportEffects (eff))) Unit
+  -> (q ~> Aff) 
+  -> (Error -> Aff Unit)
+  -> (Channel c s -> Consumer m Aff (Channel c t))
+  -> Consumer m Aff Unit
 halogenSession _ r params query handler prog = do
   (c :: Channel c s) <- lift $ open r params
   c' <- hoistFreeT (paranoid handler) (prog c)
   lift $ close r c'
 
-paranoid :: forall eff. (Error -> Aff (TransportEffects eff) Unit) -> Aff (TransportEffects eff) ~> Aff (TransportEffects eff)
+paranoid :: forall eff. (Error -> Aff Unit) -> Aff ~> Aff
 paranoid h x = do
   r <- attempt x
   case r of
@@ -86,10 +86,10 @@ halogenMultiSession :: forall r rn p pn rns rns' list row s t c ps q m eff.
   -> Protocol p
   -> Tuple (Role r) Identifier
   -> Record row
-  -> (q ~> Aff (TransportEffects eff))
-  -> (Error -> Aff (TransportEffects eff) Unit)
-  -> (Channel c s -> Consumer m (Aff (TransportEffects (eff))) (Channel c t))
-  -> Consumer m (Aff (TransportEffects eff)) Unit
+  -> (q ~> Aff)
+  -> (Error -> Aff Unit)
+  -> (Channel c s -> Consumer m Aff (Channel c t))
+  -> Consumer m Aff Unit
 halogenMultiSession _ params _ (Tuple r name) ass query handler prog = do
   c@(Channel ch _ _) <- hoistFreeT (paranoid handler) $ lift $ do
     c <- open r params

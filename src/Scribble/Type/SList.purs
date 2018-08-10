@@ -8,7 +8,8 @@ import Record (delete, get)
 import Data.Tuple (Tuple(..))
 import Data.List (List, (:))
 import Data.Monoid (mempty)
-import Type.Prelude (class IsSymbol, class RowLacks, RLProxy(RLProxy), SProxy(SProxy), reflectSymbol)
+import Prim.Row (class Lacks, class Cons)
+import Type.Prelude (class IsSymbol, RLProxy(RLProxy), SProxy(SProxy), reflectSymbol)
 import Type.Row (Cons, Nil, kind RowList)
 
 foreign import kind SList
@@ -50,7 +51,7 @@ instance toHomoRowCons
 -- | Remove (the first occurance of) a given symbol from an SList.
 -- | The list *must* contain the symbol for the constraint to be satisfied.
 class RemoveSymbol (s :: Symbol) (containing :: SList) (lacking :: SList) | s containing -> lacking
-instance removeHead :: RemoveSymbol s (SCons s tail) tail
+instance removeHead :: RemoveSymbol s (SCons s tail) tail else
 instance removeTail :: RemoveSymbol s ss ss' => RemoveSymbol s (SCons s' ss) (SCons s' ss') 
 
 
@@ -64,8 +65,8 @@ instance recordKVCons ::
   ( IsSymbol key
   , Show a
   , RecordKV listRest rowRest
-  , RowLacks key rowRest
-  , RowCons  key a rowRest rowFull
+  , Lacks key rowRest
+  , Cons  key a rowRest rowFull
   ) => RecordKV (Cons key a listRest) rowFull where
   getKVs _ rec = Tuple (reflectSymbol key) (show val) : rest
     where

@@ -2,7 +2,7 @@ module Scribble.Core where
 
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
 import Effect.Aff (Aff, delay)
-import Effect.AVar (AVar, makeVar, makeEmptyVar, putVar, tryTakeVar, takeVar)
+import Effect.Aff.AVar (AVar, empty, new, put, take, tryTake)
 import Data.Time.Duration (Milliseconds(..))
 import Control.Monad.Error.Class (throwError)
 import Effect.Exception (error)
@@ -28,17 +28,16 @@ import Type.Proxy (Proxy)
 import Data.String (toLower)
 import Data.List.Types (List(..))
 import Effect.Class.Console (log)
-
-type TransportEffects eff = (dom :: DOM, avar :: AVAR, exception :: EXCEPTION | eff)
+import Prim.TypeError
 
 -- | An asynchronous untyped communication layer
 -- | Only values of 'primative' type a can be communicated
 -- | A new chanel can be created using parameters p
 class Transport c p | c -> p where
-  uSend     :: forall eff. c -> Json -> Aff (TransportEffects eff) Unit
-  uReceive  :: forall eff. c -> Aff (TransportEffects eff) Json
-  uOpen     :: forall eff. p -> Aff (TransportEffects eff) c
-  uClose    :: forall eff. c -> Aff (TransportEffects eff) Unit
+  uSend     :: forall eff. c -> Json -> Aff Unit
+  uReceive  :: forall eff. c -> Aff Json
+  uOpen     :: forall eff. p -> Aff c
+  uClose    :: forall eff. c -> Aff Unit
 
 data Channel c s = Channel c (AVar (List Json)) (AVar Unit)
 
@@ -46,11 +45,11 @@ data Channel c s = Channel c (AVar (List Json)) (AVar Unit)
 -- | times. Returns a new chanel with the usage reset.
 checkLinearity :: forall c s t eff.
      Channel c s 
-  -> Aff (TransportEffects eff) (Channel c t)
+  -> Aff (Channel c t)
 checkLinearity (Channel c bv v) = do
-  r <- tryTakeVar v
+  r <- tryTake v
   case r of
-    (Just _) -> (Channel c bv) <$> makeVar unit
+    (Just _) -> (Channel c bv) <$> new unit
     _ -> throwError $ error "Linearity exception"
 
 -- | Open a new chanel and receive the initial state
@@ -59,10 +58,10 @@ open :: forall r n c s eff p.
   => Transport c p 
   => RoleName r n
   => IsSymbol n
-  => Role r -> p -> Aff (TransportEffects eff) (Channel c s)
+  => Role r -> p -> Aff (Channel c s)
 open _ p = do
-  lin <- makeVar unit
-  bstack <- makeVar Nil
+  lin <- new unit
+  bstack <- new Nil
   c <- uOpen p
   pure $ Channel c bstack lin
 
@@ -71,7 +70,7 @@ open _ p = do
 close :: forall r c s eff p.
      Terminal r s
   => Transport c p
-  => Role r -> Channel c s -> Aff (TransportEffects eff) Unit
+  => Role r -> Channel c s -> Aff Unit
 close _ (Channel c _ _) = uClose c
 
 send :: forall r rn c a s t eff p. 
@@ -80,7 +79,7 @@ send :: forall r rn c a s t eff p.
   => IsSymbol rn
   => Transport c p
   => EncodeJson a
-  => Channel c s -> a -> Aff (TransportEffects eff) (Channel c t)
+  => Channel c s -> a -> Aff (Channel c t)
 send c@(Channel t _ _) x = do
   c' <- checkLinearity c 
 --  uSend t $ encodeMessage (Role :: Role r) (encodeJson x)
@@ -91,15 +90,15 @@ receive :: forall r c a s t eff p.
      Receive r s t a
   => Transport c p
   => DecodeJson a
-  => Channel c s -> Aff (TransportEffects eff) (Tuple a (Channel c t))
+  => Channel c s -> Aff (Tuple a (Channel c t))
 receive ch@(Channel c bv _) = do
   ch' <- checkLinearity ch
-  b <- takeVar bv
+  b <- take bv
   x <- case b of
     Nil -> do
-      putVar Nil bv
+      put Nil bv
       uReceive c
-    (Cons v vs) -> (putVar vs bv) *> pure v
+    (Cons v vs) -> (put vs bv) *> pure v
   case decodeJson x of
     Left e  -> throwError $ error e
     Right a -> pure $ Tuple a ch' 
@@ -150,8 +149,8 @@ multiSession :: forall r rn p pn rns rns' list row s t c ps eff.
   -> Protocol p
   -> Tuple (Role r) Identifier
   -> Record row
-  -> (Channel c s -> Aff (TransportEffects eff) (Channel c t))
-  -> Aff (TransportEffects eff) Unit
+  -> (Channel c s -> Aff (Channel c t))
+  -> Aff Unit
 multiSession _ params _ (Tuple r name) ass prog = do 
   (c :: Channel c s) <- open r params
   let (Channel ch _ _) = c
@@ -178,8 +177,8 @@ session :: forall r n c p s t eff.
   => Proxy c
   -> Role r
   -> p
-  -> (Channel c s -> Aff (TransportEffects eff) (Channel c t))
-  -> Aff (TransportEffects eff) Unit
+  -> (Channel c s -> Aff (Channel c t))
+  -> Aff Unit
 session _ r p prog = do
   (c :: Channel c s) <- open r p
   c' <- prog c
@@ -202,19 +201,19 @@ instance functionCons :: Functions m tail c u tail'
 
 -- | Constraint to assert element membership in RowList
 class Elem (list :: RowList) (l :: Symbol) e | list l -> e
-instance elemHead :: Elem (Cons l e tail) l e
-instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e
+instance elemHead :: Elem (Cons l e tail) l e else
+instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e else
 instance elemEmpty :: 
-     Fail (TypeConcat (TypeConcat "'" l) "' is not a supported choice") 
+     Fail (Beside (Text l) (Text "is not a supported choice"))
   => Elem Nil l e 
 
 choice :: forall r c s ts u funcs row eff p.
      Branch r s ts
   => Terminal r u
   => Transport c p 
-  => Functions (Aff (TransportEffects eff)) ts (Channel c) (Channel c u) funcs
+  => Functions (Aff) ts (Channel c) (Channel c u) funcs
   => ListToRow funcs row
-  => Channel c s -> Record row -> Aff (TransportEffects eff) (Channel c u)
+  => Channel c s -> Record row -> Aff (Channel c u)
 choice c@(Channel ch bv _) row = do
   c' <- checkLinearity c
   x <- uReceive ch
@@ -224,19 +223,19 @@ choice c@(Channel ch bv _) row = do
     Nothing -> throwError $ error "Unable to parse tag of message in branch"
     (Just label) -> if (unsafeHas label row)
                       then do
-                         takeVar bv >>= \vs -> putVar (Cons x vs) bv
+                         take bv >>= \vs -> put (Cons x vs) bv
                          (unsafeGet label row) c'
                       else throwError (error $ "Branch chosen `"
                                              <> label  <> "`  is not supported")
 
-select :: forall r rn c s ts t label eff p.
+select :: forall r c s ts t label eff.
      Select r s ts
 --  => RoleName r rn
 --  => IsSymbol rn
 --  => Transport c p
   => Elem ts label t
 --  => IsSymbol label
-  => Channel c s -> SProxy label -> Aff (TransportEffects eff) (Channel c t)
+  => Channel c s -> SProxy label -> Aff (Channel c t)
 select c@(Channel t _ _) l = do
   c' <- checkLinearity c
   pure c'
