@@ -44,7 +44,7 @@ import Scribble.Core (class Transport, uOpen, uClose, uSend, uReceive)
 newtype Session c i t a = Session ((Channel c i) -> Aff (Tuple (Channel c t) a))
 
 newtype IxStateT m i j a = IxStateT (i -> m (Tuple a j))
-type Session' c eff i t a = IxStateT Aff (Channel c i) (Channel c t) a
+type Session' c i t a = IxStateT Aff (Channel c i) (Channel c t) a
 
 -- From purescript-indexed-monad
 class IxMonad m where
