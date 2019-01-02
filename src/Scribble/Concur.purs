@@ -59,50 +59,67 @@ import Control.Monad
 import Control.Applicative
 import Unsafe.Coerce (unsafeCoerce)
 import Scribble.Core (class Transport, uOpen, uClose, uSend, uReceive)
-
-
-
-
-
--- From purescript-indexed-monad
-class IxMonad m where
-  ipure ∷ ∀ a x. a → m x x a
-  ibind ∷ ∀ a b x y z. m x y a → (a → m y z b) → m x z b
+import Control.Monad.Indexed (class IxMonad, iap)
+import Control.Bind.Indexed (class IxBind, ibind)
+import Control.Apply.Indexed (class IxApply)
+import Control.Applicative.Indexed (class IxApplicative, ipure)
+import Data.Functor.Indexed (class IxFunctor, imap)
 
 newtype Session m c i t a = Session ((Channel c i) -> m (Tuple (Channel c t) a))
 
-instance sessionIxMonad :: Monad m => IxMonad (Session m c) where
+instance sessionIxMonad :: Monad m => IxMonad (Session m c)
+
+instance sessionIxApplicative :: Monad m => IxApplicative (Session m c) where
   ipure x = Session (\c -> pure (Tuple c x))
+
+instance sessionIxBind :: Monad m => IxBind (Session m c) where
   ibind (Session s) f
     = Session (\c -> (s c) 
         >>= (\(Tuple c' x) -> case f x of
           (Session s') -> s' c'))
 
+instance sessionIxApply :: Monad m => IxApply (Session m c) where
+  iapply = iap
+--  apply (Session f) (Session s) = Session (\c -> apply (h $ f c) (s c))
+--    where
+--    h :: forall f a b c'.
+--         Functor f
+--      => f (Tuple c' (a -> b))
+--      -> f (Tuple c' a -> Tuple c' b)
+--    h = map (\(Tuple _ g) -> \(Tuple c x)  -> Tuple c (g x))
+
+
+instance sessionIxFunctor :: Functor m => IxFunctor (Session m c) where
+  imap f (Session s) = Session (\c -> map (\(Tuple c' x) -> Tuple c' $ f x) $ s c)
+
 -- TODO: Work out how to derive these from the bind/pure definitions?
 instance sessionFunctor :: Functor m => Functor (Session m c i i) where
-  map f (Session s) = Session (\c -> map (\(Tuple _ x) -> Tuple c $ f x) $ s c)
+  map = imap
 
-instance sessionApply :: Apply m => Apply (Session m c i i) where
-  apply (Session f) (Session s) = Session (\c -> apply (h $ f c) (s c))
-    where
-    h :: forall f a b c'.
-         Functor f
-      => f (Tuple c' (a -> b))
-      -> f (Tuple c' a -> Tuple c' b)
-    h = map (\(Tuple _ g) -> \(Tuple c x)  -> Tuple c (g x))
+instance sessionApply :: Monad m => Apply (Session m c i i) where
+  apply = iap
+--  apply (Session f) (Session s) = Session (\c -> apply (h $ f c) (s c))
+--    where
+--    h :: forall f a b c'.
+--         Functor f
+--      => f (Tuple c' (a -> b))
+--      -> f (Tuple c' a -> Tuple c' b)
+--    h = map (\(Tuple _ g) -> \(Tuple c x)  -> Tuple c (g x))
 
-instance sessionBind :: Bind m => Bind (Session m c i i) where
-  bind (Session s) f = Session (\c -> (s c) >>= (\(Tuple _ x) -> case f x of (Session s') -> s' c))
+instance sessionBind :: Monad m => Bind (Session m c i i) where
+  bind = ibind
+--  bind (Session s) f = Session (\c -> (s c) >>= (\(Tuple _ x) -> case f x of (Session s') -> s' c))
 
-instance sessionApplicative :: Applicative m => Applicative (Session m c i i) where
-  pure x = Session (\c -> pure (Tuple c x))
+instance sessionApplicative :: Monad m => Applicative (Session m c i i) where
+  pure = ipure
+
+--  pure x = Session (\c -> pure (Tuple c x))
 
 instance sessionMonad :: Monad m => Monad (Session m c i i)
 
 instance sessionMonadEffect :: MonadEffect m => MonadEffect (Session m c i i) where
   liftEffect eff = Session (\c -> map (Tuple c) (liftEffect eff))
 
--- TODO: Find out why the `Monoid v` constraint isn't implied
 instance sessionMonadAff :: MonadAff m => MonadAff (Session m c i i) where
   liftAff aff = Session (\c -> map (Tuple c) (liftAff aff))
 

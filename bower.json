@@ -24,6 +24,7 @@
     "purescript-aff": "^5.0.1",
     "purescript-halogen": "^4.0.0",
     "purescript-coroutines": "^5.0.0",
+    "purescript-indexed-monad": "^1.0.0",
     "purescript-profunctor-lenses": "latest"
   },
   "devDependencies": {
