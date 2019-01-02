@@ -1,69 +1,57 @@
-module Scribble.Concur where
+module Scribble.Concur
+  ( Session
+  , class Continuations
+  , class Elem
+  , lift
+  , session
+  , send
+  , receive
+  , choice
+  , select
+  ) where
 
-import Scribble.FSM (class Initial, class ProtocolName, class ProtocolRoleNames, class RoleName, class Terminal, Protocol, Role)
-import Effect.Aff (Aff, attempt)
-import Control.Monad.Error.Class (throwError)
-import Control.Coroutine (Consumer)
-import Data.Tuple (Tuple(..))
-import Prelude --(class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=))
-import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
-import Control.Monad.Trans.Class (lift)
-import Data.Argonaut.Core (fromString)
-import Scribble.Type.SList as SList
-import Data.List ((:))
-import Type.Proxy (Proxy)
-import Scribble.Core (class Transport, encodeReq, uReceive, uSend, uOpen, uClose)
-import Control.Monad.Free.Trans (hoistFreeT)
-import Data.Either (Either(..))
-import Effect.Exception (Error)
-import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Aff.AVar (AVar, new, empty, put, read, take)
--- import Scribble.Indexed (Session(..), Channel(..), open, close)
-
+import Scribble.Core (class Transport, uReceive, uSend, uOpen, uClose)
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
-import Effect.Aff (Aff, delay)
-import Effect.Aff.AVar (AVar, new, empty, put, read, take)
-import Data.Time.Duration (Milliseconds(..))
-import Control.Monad.Error.Class (throwError)
-import Effect.Exception (error)
-import Control.Coroutine as CR
-import Data.Tuple (Tuple(..))
-import Prelude (class Show, Unit, bind, discard, pure, show, unit, ($), (<$>), (<*>), (<>), (>>=), map)
+
 import Control.Apply ((*>))
-import Type.Row (class ListToRow, Cons, Nil, kind RowList, RLProxy(RLProxy))
+import Control.Monad.Error.Class (throwError)
+
+import Data.Either (Either(..))
+import Data.Maybe (Maybe(..))
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
+import Data.Tuple (Tuple(..))
+
+import Effect.Exception (error)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Aff (Aff)
+import Effect.Aff.AVar (AVar, new, put, take)
+import Effect.Aff.Class (class MonadAff, liftAff)
+
+import Type.Row (class ListToRow, Cons, Nil, kind RowList)
+import Type.Proxy (Proxy)
+
+import Prelude (class Apply, class Bind, class Monad, class Applicative, class Functor, class Show, Unit, bind, discard, pure, unit, ($), (<$>), (<>), (>>=), map)
 import Record.Unsafe (unsafeGet, unsafeHas)
-import Control.Monad.Trans.Class (lift)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Encode (class EncodeJson, encodeJson)
 import Data.Argonaut.Core (Json, fromArray, fromObject, fromString, toObject, toString)
-import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), maybe)
-import Effect.Class (liftEffect)
-import Data.List (List, (:))
+import Data.List ((:))
 import Data.Monoid (mempty)
 import Foreign.Object (fromFoldable, lookup)
 import Data.Array as Array
 import Data.String (toLower)
 import Data.List.Types (List(..))
-import Effect.Class.Console (log)
 import Prim.TypeError
 
-import Effect.Class
-import Data.Functor
-import Control.Apply
-import Data.Tuple (snd)
-import Control.Bind
-import Control.Monad
-import Control.Applicative
 import Unsafe.Coerce (unsafeCoerce)
-import Scribble.Core (class Transport, uOpen, uClose, uSend, uReceive)
+
 import Control.Monad.Indexed (class IxMonad, iap)
 import Control.Bind.Indexed (class IxBind, ibind)
 import Control.Apply.Indexed (class IxApply)
 import Control.Applicative.Indexed (class IxApplicative, ipure)
 import Data.Functor.Indexed (class IxFunctor, imap)
+
+data Channel c s = Channel c (AVar (List Json))
 
 newtype Session m c i t a = Session ((Channel c i) -> m (Tuple (Channel c t) a))
 
@@ -78,55 +66,46 @@ instance sessionIxBind :: Monad m => IxBind (Session m c) where
         >>= (\(Tuple c' x) -> case f x of
           (Session s') -> s' c'))
 
+-- TODO: Check if the Monad constraint can be relaxed to Applicative
+-- iapply ∷ ∀ a b i j k. Session m c i j (a → b) → Session m c j k a → Session m c i k b
+-- 
+-- c :: Channel c i 
+-- f c :: m (Tuple (Channel c j) (a -> b))
+-- 
+-- s :: ((Channel c j) -> m (Tuple (Channel c k) a))
+-- 
+-- need to produce :: m (Tuple (Channel c k) b)
+-- 
+-- I'm almost certain `m` must be a Monad (as you need m (m a) -> m a)
+
 instance sessionIxApply :: Monad m => IxApply (Session m c) where
   iapply = iap
---  apply (Session f) (Session s) = Session (\c -> apply (h $ f c) (s c))
---    where
---    h :: forall f a b c'.
---         Functor f
---      => f (Tuple c' (a -> b))
---      -> f (Tuple c' a -> Tuple c' b)
---    h = map (\(Tuple _ g) -> \(Tuple c x)  -> Tuple c (g x))
-
 
 instance sessionIxFunctor :: Functor m => IxFunctor (Session m c) where
-  imap f (Session s) = Session (\c -> map (\(Tuple c' x) -> Tuple c' $ f x) $ s c)
+  imap f (Session s) = Session \c -> map (\(Tuple c' x) -> Tuple c' $ f x) $ s c
 
--- TODO: Work out how to derive these from the bind/pure definitions?
 instance sessionFunctor :: Functor m => Functor (Session m c i i) where
   map = imap
 
 instance sessionApply :: Monad m => Apply (Session m c i i) where
   apply = iap
---  apply (Session f) (Session s) = Session (\c -> apply (h $ f c) (s c))
---    where
---    h :: forall f a b c'.
---         Functor f
---      => f (Tuple c' (a -> b))
---      -> f (Tuple c' a -> Tuple c' b)
---    h = map (\(Tuple _ g) -> \(Tuple c x)  -> Tuple c (g x))
 
 instance sessionBind :: Monad m => Bind (Session m c i i) where
   bind = ibind
---  bind (Session s) f = Session (\c -> (s c) >>= (\(Tuple _ x) -> case f x of (Session s') -> s' c))
 
 instance sessionApplicative :: Monad m => Applicative (Session m c i i) where
   pure = ipure
 
---  pure x = Session (\c -> pure (Tuple c x))
-
 instance sessionMonad :: Monad m => Monad (Session m c i i)
 
 instance sessionMonadEffect :: MonadEffect m => MonadEffect (Session m c i i) where
-  liftEffect eff = Session (\c -> map (Tuple c) (liftEffect eff))
+  liftEffect eff = Session \c -> map (Tuple c) (liftEffect eff)
 
 instance sessionMonadAff :: MonadAff m => MonadAff (Session m c i i) where
-  liftAff aff = Session (\c -> map (Tuple c) (liftAff aff))
+  liftAff aff = Session \c -> map (Tuple c) (liftAff aff)
 
 lift :: forall c i f a. Functor f => f a -> Session f c i i a
 lift x = Session \c -> map (Tuple c) x
-
-data Channel c s = Channel c (AVar (List Json))
 
 -- | Open a new chanel and receive the initial state
 open :: forall r n c s p.
@@ -205,12 +184,12 @@ instance encodeJsonLabel :: EncodeJson Label where
 instance decodeJsonLabel :: DecodeJson Label where
   decodeJson l = Label <$> decodeJson l
 
--- | `Functions` maps the 'dictionary' `ts` to a dictionary of continuations
+-- | `Continuations` maps the 'dictionary' `ts` to a dictionary of continuations
 -- | to common state `u` running in monad `m`
-class Functions (im :: Type -> Type -> Type -> Type) (ts :: RowList) u (funcs :: RowList) | im ts u -> funcs
-instance functionNil  :: Functions im Nil u Nil
-instance functionCons :: Functions im tail u tail'
-  => Functions im (Cons label t tail) u (Cons label (im t u Unit) tail')
+class Continuations (im :: Type -> Type -> Type -> Type) (ts :: RowList) u (funcs :: RowList) | im ts u -> funcs
+instance functionNil  :: Continuations im Nil u Nil
+instance functionCons :: Continuations im tail u tail'
+  => Continuations im (Cons label t tail) u (Cons label (im t u Unit) tail')
 
 -- | Constraint to assert element membership in RowList
 class Elem (list :: RowList) (l :: Symbol) e | list l -> e
@@ -224,7 +203,7 @@ choice :: forall r c s ts u funcs row m p.
      Branch r s ts
   => Terminal r u
   => Transport c p 
-  => Functions (Session m c) ts u funcs
+  => Continuations (Session m c) ts u funcs
   => ListToRow funcs row
   => MonadAff m
   => Record row -> Session m c s u Unit
