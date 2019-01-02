@@ -69,8 +69,9 @@ open (URL url) = do
   liftEffect $ do
     el <- (EET.eventListener \_ -> void $ launchAff $ do
         liftEffect $ log "close"
-        modifyVar (const Closed) status
-        throwError $ error "Connection closed")
+        modifyVar (const Closed) status)
+-- TODO: Properly handle closing a connection - i.e. throw error only when unexpected
+--        throwError $ error "Connection closed")
     EET.addEventListener
       WSET.onClose
       el
