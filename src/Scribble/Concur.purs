@@ -7,24 +7,28 @@ module Scribble.Concur
   , send
   , receive
   , choice
+  , connect
+  , disconnect
   , select
   ) where
 
 import Scribble.Core (class Transport, uReceive, uSend, uOpen, uClose)
-import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send, class Terminal, Protocol, Role(..))
+import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send,
+    class Connect, class Disconnect, class Terminal, Protocol, Role(..))
 
 import Control.Apply ((*>))
 import Control.Monad.Error.Class (throwError)
 
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
+import Data.Map as M
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Tuple (Tuple(..))
 
 import Effect.Exception (error)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Aff (Aff)
-import Effect.Aff.AVar (AVar, new, put, take)
+import Effect.Aff.AVar (AVar, new, put, take, empty)
 import Effect.Aff.Class (class MonadAff, liftAff)
 
 import Type.Row (class ListToRow, Cons, Nil, kind RowList)
@@ -51,9 +55,12 @@ import Control.Apply.Indexed (class IxApply)
 import Control.Applicative.Indexed (class IxApplicative, ipure)
 import Data.Functor.Indexed (class IxFunctor, imap)
 
-data Channel c s = Channel c (AVar (List Json))
+-- The session now needs to keep a list of open connections (with each role)
+-- TODO: Use a map indexed by the roles? (take the roles as an additonal type paramter)
+data Channel c = Channel c (AVar (List Json))
+newtype Channels c s = Channels (M.Map String (Channel c))
 
-newtype Session m c i t a = Session ((Channel c i) -> m (Tuple (Channel c t) a))
+newtype Session m c i t a = Session ((Channels c i) -> m (Tuple (Channels c t) a))
 
 instance sessionIxMonad :: Monad m => IxMonad (Session m c)
 
@@ -107,43 +114,69 @@ instance sessionMonadAff :: MonadAff m => MonadAff (Session m c i i) where
 lift :: forall c i f a. Functor f => f a -> Session f c i i a
 lift x = Session \c -> map (Tuple c) x
 
--- | Open a new chanel and receive the initial state
-open :: forall r n c s p.
-     Initial r s
-  => Transport c p 
-  => RoleName r n
-  => IsSymbol n
-  => Role r -> p -> Aff (Channel c s)
-open _ p = do
-  bstack <- new Nil
-  c <- uOpen p
-  pure $ Channel c bstack
-
--- | We don't need to check linearity here, as in order to construct a terminal
--- | state, the previous state must have been consumed.
-close :: forall r c s p.
-     Terminal r s
+connect :: forall r r' rn m s t c p.
+     Connect r r' s t
   => Transport c p
-  => Role r -> Channel c s -> Aff Unit
-close _ (Channel c _) = uClose c
+  => RoleName r' rn
+  => IsSymbol rn
+  => MonadAff m
+  => Role r' -> p -> Session m c s t Unit
+connect _ p = Session $ \(Channels cs) ->
+  do
+    lock <- liftAff $ empty
+    conn <- liftAff $ uOpen p
+    let chan = Channel conn lock
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    pure $ Tuple (Channels $ M.insert key chan cs) unit
+
+disconnect :: forall r r' rn m s t c p.
+     Disconnect r r' s t
+  => Transport c p
+  => RoleName r' rn
+  => IsSymbol rn
+  => MonadAff m
+  => Role r' -> Session m c s t Unit
+disconnect _ = Session $ \(Channels cs) ->
+  do
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    let chan = M.lookup key cs
+    -- TODO: We should never be in a case where there isn't an entry
+    maybe (pure unit) (\(Channel c _) -> liftAff $ uClose c) chan
+    pure $ Tuple (Channels $ M.delete key cs) unit
+
+-- Not required for sessions with explicit connections
+-- -- | Open a new chanel and receive the initial state
+-- open :: forall r n c s p.
+--      Initial r s
+--   => Transport c p 
+--   => RoleName r n
+--   => IsSymbol n
+--   => Role r -> p -> Aff (Channel c s)
+-- open _ p = do
+--   bstack <- new Nil
+--   c <- uOpen p
+--   pure $ Channel c bstack
+-- 
+-- -- | We don't need to check linearity here, as in order to construct a terminal
+-- -- | state, the previous state must have been consumed.
+-- close :: forall r c s p.
+--      Terminal r s
+--   => Transport c p
+--   => Role r -> Channel c s -> Aff Unit
+-- close _ (Channel c _) = uClose c
 
 -- | Designed for a binary session (with direct communication)
 session :: forall r n c p s t m a.
      Transport c p
   => Initial r s
   => Terminal r t
-  => RoleName r n
-  => IsSymbol n
   => MonadAff m
   => Proxy c
   -> Role r
-  -> p
   -> Session m c s t a
   -> m a
-session _ r p (Session prog) = do
-  (c :: Channel c s) <- liftAff $ open r p
-  (Tuple c' x) <- prog c
-  liftAff $ close r c'
+session _ _ (Session prog) = do
+  (Tuple _ x) <- prog (Channels mempty)
   pure x
 
 send :: forall r rn c a s t m p. 
@@ -154,27 +187,38 @@ send :: forall r rn c a s t m p.
   => EncodeJson a
   => MonadAff m
   => a -> Session m c s t Unit
-send x = Session \c@(Channel t _) -> 
-  map (Tuple (unsafeCoerce c)) 
-    (liftAff $ uSend t $ encodeMessage (Role :: Role r) (encodeJson x))
+send x = Session \(Channels cs) -> 
+  do
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    let chan = M.lookup key cs
+    -- TODO: We should never be in a case where there isn't an entry
+    maybe (pure unit) (\(Channel c _) -> liftAff $ uSend c (encodeJson x)) chan
+    pure $ Tuple (Channels cs) unit
 
-receive :: forall r c a s t m p. 
+receive :: forall r rn c a s t m p. 
      Receive r s t a
+  => RoleName r rn
+  => IsSymbol rn
   => Transport c p
   => DecodeJson a
   => MonadAff m
   => Session m c s t a
-receive = Session \c@(Channel t bv) ->
-  map (Tuple (unsafeCoerce c)) $ liftAff $ do
-    b <- take bv
-    x <- case b of
-      Nil -> do
-        put Nil bv
-        uReceive t
-      (Cons v vs) -> (put vs bv) *> pure v
-    case decodeJson x of
-      Left e  -> throwError $ error e
-      Right a -> pure a
+receive = Session \(Channels cs) ->
+  do
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    let chan = M.lookup key cs
+    case chan of
+      Nothing -> liftAff $ throwError $ error "Channel closed"
+      Just (Channel c bv) -> do
+         b <- liftAff $ take bv
+         x <- case b of
+           Nil -> do
+             liftAff $ put Nil bv
+             liftAff $ uReceive c
+           (Cons v vs) -> liftAff $ (put vs bv) *> pure v
+         case decodeJson x of
+           Left e  -> liftAff $ throwError $ error e
+           Right a -> pure (Tuple (unsafeCoerce c) a)
 
 -- | Label used for banching/selecting
 newtype Label = Label String
@@ -199,27 +243,34 @@ instance elemEmpty ::
      Fail (Beside (Text l) (Text "is not a supported choice"))
   => Elem Nil l e 
 
-choice :: forall r c s ts u funcs row m p.
+choice :: forall r rn c s ts u funcs row m p.
      Branch r s ts
+  => RoleName r rn
+  => IsSymbol rn
   => Terminal r u
   => Transport c p 
   => Continuations (Session m c) ts u funcs
   => ListToRow funcs row
   => MonadAff m
   => Record row -> Session m c s u Unit
-choice row = Session \c@(Channel ch bv) ->
-  map (Tuple (unsafeCoerce c)) $ liftAff $ do
-   x <- uReceive ch
-   let lab = (toObject x >>= lookup "tag" >>= toString)
-   let lab' = toLower <$> lab
-   case lab' of
-     Nothing -> throwError $ error "Unable to parse tag of message in branch"
-     (Just label) -> if (unsafeHas label row)
-                       then do
-                          take bv >>= \vs -> put (Cons x vs) bv
-                          (unsafeGet label row) c
-                       else throwError (error $ "Branch chosen `"
-                                              <> label  <> "`  is not supported")
+choice row = Session \(Channels cs) ->
+  do
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    let chan = M.lookup key cs
+    case chan of
+      Nothing -> liftAff $ throwError $ error "Channel closed"
+      Just c@(Channel ch bv) -> do
+        x <- liftAff $ uReceive ch
+        let lab = (toObject x >>= lookup "tag" >>= toString)
+        let lab' = toLower <$> lab
+        case lab' of
+          Nothing -> liftAff $ throwError $ error "Unable to parse tag of message in branch"
+          (Just label) -> if (unsafeHas label row)
+                            then do
+                               liftAff $ take bv >>= \vs -> put (Cons x vs) bv
+                               (unsafeGet label row) c
+                            else liftAff $ throwError (error $ "Branch chosen `"
+                                                   <> label  <> "`  is not supported")
 
 select :: forall r rn c s ts t label m p.
      Select r s ts
@@ -231,29 +282,3 @@ select :: forall r rn c s ts t label m p.
   => MonadAff m
   => SProxy label -> Session m c s t Unit
 select _ = unsafeCoerce (pure unit :: Session m c s s Unit)
-
--- | Encode a message with role information for the proxy
-encodeMessage :: forall r rn.
-     RoleName r rn
-  => IsSymbol rn
-  => Role r
-  -> Json
-  -> Json
-encodeMessage _ m = m
---encodeMessage _ m = fromObject $ fromFoldable $ (Tuple "to" $ fromString
---    (reflectSymbol (SProxy :: SProxy rn))) : (Tuple "body" m) : mempty 
-
-newtype Identifier = Identifier String
-instance identifierShow :: Show Identifier where
-  show (Identifier i) = i
-
-type SessionReq = { protocol :: Tuple String (List String), assignment :: List (Tuple String String), role :: String }
-
--- TODO: Rewrite this using pureST
-encodeReq :: SessionReq -> Json
-encodeReq req = fromObject $ fromFoldable $ (Tuple "protocol" protocol) : (Tuple "role" (fromString req.role)) : (Tuple "assignment" ass) : mempty
-  where
-    (Tuple name roles) = req.protocol
-    protocol = fromObject $ fromFoldable $ (Tuple "name" (fromString name)) : (Tuple "roles" roles') : mempty
-    roles' = fromArray $ fromString <$> Array.fromFoldable roles
-    ass = fromObject $ fromString <$> fromFoldable req.assignment

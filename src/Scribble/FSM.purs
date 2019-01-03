@@ -43,5 +43,5 @@ class Branch (r :: Role) s (ts :: RowList) | s -> ts r
 -- | `s` and `ts` have the same meaning.
 class Select (r :: Role) s (ts :: RowList) | s -> ts r
 
-class Connect (r :: Role) (r' :: Role) s t
-class Disconnect (r :: Role) (r' :: Role) s t
+class Connect (r :: Role) (r' :: Role) s t | s -> r r' t
+class Disconnect (r :: Role) (r' :: Role) s t | s -> r r' t
