@@ -123,11 +123,12 @@ connect :: forall r r' rn m s t c p.
   => Role r' -> p -> Session m c s t Unit
 connect _ p = Session $ \(Channels cs) ->
   do
-    lock <- liftAff $ empty
+    bstack <- liftAff $ new Nil
     conn <- liftAff $ uOpen p
-    let chan = Channel conn lock
+    let chan = Channel conn bstack
     let key = reflectSymbol (SProxy :: SProxy rn)
-    pure $ Tuple (Channels $ M.insert key chan cs) unit
+    let cs' = M.insert key chan cs
+    pure $ Tuple (Channels cs') unit
 
 disconnect :: forall r r' rn m s t c p.
      Disconnect r r' s t
@@ -176,7 +177,7 @@ session :: forall r n c p s t m a.
   -> Session m c s t a
   -> m a
 session _ _ (Session prog) = do
-  (Tuple _ x) <- prog (Channels mempty)
+  (Tuple _ x) <- prog (Channels M.empty)
   pure x
 
 send :: forall r rn c a s t m p. 
