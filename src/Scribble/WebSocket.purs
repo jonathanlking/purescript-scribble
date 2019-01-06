@@ -1,6 +1,8 @@
 module Scribble.WebSocket where
 
-import Scribble.Core
+-- TODO: Deprecate Scribble.Core
+import Scribble.Core as Old
+import Scribble.Transport
 
 import Web.Event.EventTarget as EET
 import Web.Socket.Event.EventTypes as WSET
@@ -25,6 +27,7 @@ import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Parser (jsonParser)
 
 import Effect.Aff (Aff, delay, launchAff, forkAff)
+import Effect.Aff.Class (liftAff)
 import Effect.Aff.AVar (AVar, new, empty, put, read, take)
 import Data.Time.Duration (Milliseconds(..))
 
@@ -119,8 +122,15 @@ close (WebSocket sv _ ws) = do
       liftEffect $ WS.close ws
     Closed -> pure unit
 
-instance transportWebSocket :: Transport WebSocket URL where
+instance oldTransportWebSocket :: Old.Transport WebSocket URL where
   uSend = send
   uReceive = receive
   uOpen = open
   uClose = close
+
+instance transportWebSocket :: Transport WebSocket URL where
+  -- TODO: Make pointfree
+  send = \ws -> liftAff <<< (send ws)
+  receive = liftAff <<< receive
+  open = liftAff <<< open
+  close = liftAff <<< close

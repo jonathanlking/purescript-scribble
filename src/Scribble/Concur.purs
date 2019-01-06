@@ -12,7 +12,8 @@ module Scribble.Concur
   , select
   ) where
 
-import Scribble.Core (class Transport, uReceive, uSend, uOpen, uClose)
+import Scribble.Transport (class Transport)
+import Scribble.Transport as T
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send,
     class Connect, class Disconnect, class Terminal, Protocol, Role(..))
 
@@ -124,7 +125,7 @@ connect :: forall r r' rn m s t c p.
 connect _ p = Session $ \(Channels cs) ->
   do
     bstack <- liftAff $ new Nil
-    conn <- liftAff $ uOpen p
+    conn <- T.open p
     let chan = Channel conn bstack
     let key = reflectSymbol (SProxy :: SProxy rn)
     let cs' = M.insert key chan cs
@@ -142,31 +143,10 @@ disconnect _ = Session $ \(Channels cs) ->
     let key = reflectSymbol (SProxy :: SProxy rn)
     let chan = M.lookup key cs
     -- TODO: We should never be in a case where there isn't an entry
-    maybe (pure unit) (\(Channel c _) -> liftAff $ uClose c) chan
+    maybe (pure unit) (\(Channel c _) -> T.close c) chan
     pure $ Tuple (Channels $ M.delete key cs) unit
 
--- Not required for sessions with explicit connections
--- -- | Open a new chanel and receive the initial state
--- open :: forall r n c s p.
---      Initial r s
---   => Transport c p 
---   => RoleName r n
---   => IsSymbol n
---   => Role r -> p -> Aff (Channel c s)
--- open _ p = do
---   bstack <- new Nil
---   c <- uOpen p
---   pure $ Channel c bstack
--- 
--- -- | We don't need to check linearity here, as in order to construct a terminal
--- -- | state, the previous state must have been consumed.
--- close :: forall r c s p.
---      Terminal r s
---   => Transport c p
---   => Role r -> Channel c s -> Aff Unit
--- close _ (Channel c _) = uClose c
-
--- | Designed for a binary session (with direct communication)
+-- | Designed for a session with explicit connections
 session :: forall r n c p s t m a.
      Transport c p
   => Initial r s
@@ -193,7 +173,7 @@ send x = Session \(Channels cs) ->
     let key = reflectSymbol (SProxy :: SProxy rn)
     let chan = M.lookup key cs
     -- TODO: We should never be in a case where there isn't an entry
-    maybe (pure unit) (\(Channel c _) -> liftAff $ uSend c (encodeJson x)) chan
+    maybe (pure unit) (\(Channel c _) -> T.send c (encodeJson x)) chan
     pure $ Tuple (Channels cs) unit
 
 receive :: forall r rn c a s t m p. 
@@ -215,11 +195,11 @@ receive = Session \(Channels cs) ->
          x <- case b of
            Nil -> do
              liftAff $ put Nil bv
-             liftAff $ uReceive c
+             T.receive c
            (Cons v vs) -> liftAff $ (put vs bv) *> pure v
          case decodeJson x of
            Left e  -> liftAff $ throwError $ error e
-           Right a -> pure (Tuple (unsafeCoerce c) a)
+           Right a -> pure (Tuple (Channels cs) a)
 
 -- | Label used for banching/selecting
 newtype Label = Label String
@@ -241,7 +221,7 @@ class Elem (list :: RowList) (l :: Symbol) e | list l -> e
 instance elemHead :: Elem (Cons l e tail) l e else
 instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e else
 instance elemEmpty :: 
-     Fail (Beside (Text l) (Text "is not a supported choice"))
+     Fail (Beside (Text l) (Text " is not a supported choice"))
   => Elem Nil l e 
 
 choice :: forall r rn c s ts u funcs row m p.
@@ -261,7 +241,7 @@ choice row = Session \(Channels cs) ->
     case chan of
       Nothing -> liftAff $ throwError $ error "Channel closed"
       Just c@(Channel ch bv) -> do
-        x <- liftAff $ uReceive ch
+        x <- T.receive ch
         let lab = (toObject x >>= lookup "tag" >>= toString)
         let lab' = toLower <$> lab
         case lab' of
