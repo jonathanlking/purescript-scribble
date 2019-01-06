@@ -1,7 +1,5 @@
 module Scribble.WebSocket where
 
--- TODO: Deprecate Scribble.Core
-import Scribble.Core as Old
 import Scribble.Transport
 
 import Web.Event.EventTarget as EET
@@ -10,7 +8,6 @@ import Web.Socket.Event.MessageEvent as ME
 import Web.Socket.WebSocket as WS
 import Effect.Class (liftEffect)
 
-import Control.Coroutine as CR
 import Control.Monad.Except (runExcept)
 import Data.Either (Either(..), either)
 import Data.Foldable (for_)
@@ -40,12 +37,12 @@ data WebSocket = WebSocket (AVar Status) (AVar Json) WS.WebSocket
 
 -- TODO: Fix!
 -- This is an exception-unsafe implementation
-modifyVar :: forall e a. (a -> a) -> AVar a -> Aff Unit
+modifyVar :: forall a. (a -> a) -> AVar a -> Aff Unit
 modifyVar f v = do
   x <- take v
   put (f x) v
 
-open :: forall eff. URL -> Aff WebSocket
+open :: URL -> Aff WebSocket
 open (URL url) = do
   status <- empty
   ibuf <- empty
@@ -99,21 +96,21 @@ open (URL url) = do
     readHelper read =
       either (const Nothing) Just <<< runExcept <<< read <<< unsafeToForeign
 
-send :: forall eff. WebSocket -> Json -> Aff Unit
+send :: WebSocket -> Json -> Aff Unit
 send c@(WebSocket sv _ ws) x = do
   status <- read sv
   case status of
     Open -> liftEffect $ WS.sendString ws $ stringify x
     Closed -> throwError $ error "Channel is closed"
 
-receive :: forall eff. WebSocket -> Aff Json
+receive :: WebSocket -> Aff Json
 receive c@(WebSocket sv ibuf _) = do
   status <- read sv
   case status of
     Open -> take ibuf 
     Closed -> throwError $ error "Channel is closed"
 
-close :: forall eff. WebSocket -> Aff Unit
+close :: WebSocket -> Aff Unit
 close (WebSocket sv _ ws) = do
   status <- read sv
   case status of
@@ -121,12 +118,6 @@ close (WebSocket sv _ ws) = do
       modifyVar (const Closed) sv 
       liftEffect $ WS.close ws
     Closed -> pure unit
-
-instance oldTransportWebSocket :: Old.Transport WebSocket URL where
-  uSend = send
-  uReceive = receive
-  uOpen = open
-  uClose = close
 
 instance transportWebSocket :: Transport WebSocket URL where
   -- TODO: Make pointfree

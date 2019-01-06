@@ -1,4 +1,4 @@
-module Scribble.Concur
+module Scribble.Session
   ( Session
   , class Continuations
   , class Elem

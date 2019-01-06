@@ -1,4 +1,4 @@
-module Scribble.Type.SList where
+module Type.SList where
 
 -- Very little original contribution here, mainly cherry picking SList parts
 -- from purescript-record-extra (by Justin Woo)
