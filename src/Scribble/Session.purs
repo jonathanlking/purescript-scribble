@@ -12,10 +12,10 @@ module Scribble.Session
   , select
   ) where
 
-import Scribble.Transport (class Transport)
+import Scribble.Transport (class Transport, class TransportClient, class TransportServer)
 import Scribble.Transport as T
 import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send,
-    class Connect, class Disconnect, class Terminal, Protocol, Role(..))
+    class Connect, class Request, class Disconnect, class Terminal, Protocol, Role(..))
 
 import Control.Apply ((*>))
 import Control.Monad.Error.Class (throwError)
@@ -117,7 +117,7 @@ lift x = Session \c -> map (Tuple c) x
 
 connect :: forall r r' rn m s t c p.
      Connect r r' s t
-  => Transport c p
+  => TransportClient c p
   => RoleName r' rn
   => IsSymbol rn
   => MonadAff m
@@ -125,7 +125,23 @@ connect :: forall r r' rn m s t c p.
 connect _ p = Session $ \(Channels cs) ->
   do
     bstack <- liftAff $ new Nil
-    conn <- T.open p
+    conn <- T.connect p
+    let chan = Channel conn bstack
+    let key = reflectSymbol (SProxy :: SProxy rn)
+    let cs' = M.insert key chan cs
+    pure $ Tuple (Channels cs') unit
+
+request :: forall r r' rn m s t c p.
+     Request r r' s t
+  => TransportServer c p
+  => RoleName r' rn
+  => IsSymbol rn
+  => MonadAff m
+  => Role r' -> p -> Session m c s t Unit
+request _ p = Session $ \(Channels cs) ->
+  do
+    bstack <- liftAff $ new Nil
+    conn <- T.serve p
     let chan = Channel conn bstack
     let key = reflectSymbol (SProxy :: SProxy rn)
     let cs' = M.insert key chan cs

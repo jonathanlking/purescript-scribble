@@ -1,4 +1,4 @@
-module Scribble.WebSocket where
+module Scribble.Transport.WebSocket where
 
 import Scribble.Transport
 
@@ -42,8 +42,8 @@ modifyVar f v = do
   x <- take v
   put (f x) v
 
-open :: URL -> Aff WebSocket
-open (URL url) = do
+connect :: URL -> Aff WebSocket
+connect (URL url) = do
   status <- empty
   ibuf <- empty
   socket <- liftEffect $ WS.create url []
@@ -119,9 +119,11 @@ close (WebSocket sv _ ws) = do
       liftEffect $ WS.close ws
     Closed -> pure unit
 
-instance transportWebSocket :: Transport WebSocket URL where
+instance webSocketURLTransport :: Transport WebSocket URL where
   -- TODO: Make pointfree
   send = \ws -> liftAff <<< (send ws)
   receive = liftAff <<< receive
-  open = liftAff <<< open
   close = liftAff <<< close
+
+instance webSocketURLTransportClient :: TransportClient WebSocket URL where
+  connect = liftAff <<< connect
