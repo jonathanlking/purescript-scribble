@@ -22,6 +22,7 @@
     "purescript-web-events": "^1.0.0",
     "purescript-foreign": "^5.0.0",
     "purescript-aff": "^5.0.1",
+    "purescript-avar": "^3.0.0",
     "purescript-indexed-monad": "^1.0.0",
     "purescript-debug": "latest",
     "purescript-profunctor-lenses": "latest"

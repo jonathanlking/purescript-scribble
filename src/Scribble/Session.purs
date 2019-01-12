@@ -12,12 +12,13 @@ module Scribble.Session
   , select
   ) where
 
+import Prelude
+
 import Scribble.Transport (class Transport, class TransportClient, class TransportServer)
 import Scribble.Transport as T
-import Scribble.FSM (class Branch, class Initial, class ProtocolName, class ProtocolRoleNames, class Receive, class RoleName, class Select, class Send,
-    class Connect, class Request, class Disconnect, class Terminal, Protocol, Role(..))
+import Scribble.FSM (class Branch, class Initial, class Receive, class RoleName, class Select, class Send,
+    class Connect, class Accept, class Disconnect, class Terminal, Role)
 
-import Control.Apply ((*>))
 import Control.Monad.Error.Class (throwError)
 
 import Data.Either (Either(..))
@@ -28,25 +29,20 @@ import Data.Tuple (Tuple(..))
 
 import Effect.Exception (error)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Aff (Aff)
-import Effect.Aff.AVar (AVar, new, put, take, empty)
+import Effect.Aff.AVar (AVar, new, put, take)
 import Effect.Aff.Class (class MonadAff, liftAff)
 
 import Type.Row (class ListToRow, Cons, Nil, kind RowList)
 import Type.Proxy (Proxy)
 
-import Prelude (class Apply, class Bind, class Monad, class Applicative, class Functor, class Show, Unit, bind, discard, pure, unit, ($), (<$>), (<>), (>>=), map)
 import Record.Unsafe (unsafeGet, unsafeHas)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Encode (class EncodeJson, encodeJson)
-import Data.Argonaut.Core (Json, fromArray, fromObject, fromString, toObject, toString)
-import Data.List ((:))
-import Data.Monoid (mempty)
-import Foreign.Object (fromFoldable, lookup)
-import Data.Array as Array
+import Data.Argonaut.Core (Json, toObject, toString)
+import Foreign.Object (lookup)
 import Data.String (toLower)
 import Data.List.Types (List(..))
-import Prim.TypeError
+import Prim.TypeError as TE
 
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -132,7 +128,7 @@ connect _ p = Session $ \(Channels cs) ->
     pure $ Tuple (Channels cs') unit
 
 request :: forall r r' rn m s t c p.
-     Request r r' s t
+     Accept r r' s t
   => TransportServer c p
   => RoleName r' rn
   => IsSymbol rn
@@ -163,7 +159,7 @@ disconnect _ = Session $ \(Channels cs) ->
     pure $ Tuple (Channels $ M.delete key cs) unit
 
 -- | Designed for a session with explicit connections
-session :: forall r n c p s t m a.
+session :: forall r c p s t m a.
      Transport c p
   => Initial r s
   => Terminal r t
@@ -237,7 +233,7 @@ class Elem (list :: RowList) (l :: Symbol) e | list l -> e
 instance elemHead :: Elem (Cons l e tail) l e else
 instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e else
 instance elemEmpty :: 
-     Fail (Beside (Text l) (Text " is not a supported choice"))
+     TE.Fail (TE.Beside (TE.Text l) (TE.Text " is not a supported choice"))
   => Elem Nil l e 
 
 choice :: forall r rn c s ts u funcs row m p.
