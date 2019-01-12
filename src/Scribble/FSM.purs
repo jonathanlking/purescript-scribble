@@ -9,17 +9,10 @@ data Protocol (p :: Protocol) = Protocol
 foreign import kind Role
 data Role (r :: Role) = Role
 
--- | The symbol representation (name) of a protocol
-class ProtocolName (r :: Protocol) (name :: Symbol) | r -> name
-
 -- | The symbol representation (name) of a role
 class RoleName (r :: Role) (name :: Symbol) | r -> name
 
--- | The list of roles in a protocol
-class ProtocolRoleNames (p :: Protocol) (rs :: SList) | p -> rs
-
 -- | A way of supplying the terminal/initial state for a given role
--- | TODO: Work out why the constraint solver can't solve them
 class Initial (r :: Role) a | r -> a
 class Terminal (r :: Role) a | r -> a
 
@@ -48,4 +41,4 @@ class Connect (r :: Role) (r' :: Role) s t | s -> r r' t
 -- | Disconnect from role `r'`
 class Disconnect (r :: Role) (r' :: Role) s t | s -> r r' t
 -- | Accept a connection request from role `r'` to perform role `r`
-class Request (r :: Role) (r' :: Role) s t | s -> r r' t
+class Accept (r :: Role) (r' :: Role) s t | s -> r r' t
