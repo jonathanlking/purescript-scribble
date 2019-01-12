@@ -223,29 +223,32 @@ instance decodeJsonLabel :: DecodeJson Label where
 
 -- | `Continuations` maps the 'dictionary' `ts` to a dictionary of continuations
 -- | to common state `u` running in monad `m`
-class Continuations (im :: Type -> Type -> Type -> Type) (ts :: RowList) u (funcs :: RowList) | im ts u -> funcs
-instance functionNil  :: Continuations im Nil u Nil
-instance functionCons :: Continuations im tail u tail'
-  => Continuations im (Cons label t tail) u (Cons label (im t u Unit) tail')
+class Continuations (im :: Type -> Type -> Type -> Type) (ts :: RowList) u a (funcs :: RowList) | im ts u a -> funcs
+instance functionNil  :: Continuations im Nil u a Nil
+else
+instance functionCons :: Continuations im tail u a tail'
+  => Continuations im (Cons label t tail) u a (Cons label (im t u a) tail')
 
 -- | Constraint to assert element membership in RowList
 class Elem (list :: RowList) (l :: Symbol) e | list l -> e
-instance elemHead :: Elem (Cons l e tail) l e else
-instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e else
+instance elemHead :: Elem (Cons l e tail) l e
+else
+instance elemTail :: Elem tail l e => Elem (Cons l' e' tail) l e 
+else
 instance elemEmpty :: 
      TE.Fail (TE.Beside (TE.Text l) (TE.Text " is not a supported choice"))
   => Elem Nil l e 
 
-choice :: forall r rn c s ts u funcs row m p.
+choice :: forall r rn c s ts u funcs row m p a.
      Branch r s ts
   => RoleName r rn
   => IsSymbol rn
   => Terminal r u
   => Transport c p 
-  => Continuations (Session m c) ts u funcs
+  => Continuations (Session m c) ts u a funcs
   => ListToRow funcs row
   => MonadAff m
-  => Record row -> Session m c s u Unit
+  => Record row -> Session m c s u a
 choice row = Session \(Channels cs) ->
   do
     let key = reflectSymbol (SProxy :: SProxy rn)
