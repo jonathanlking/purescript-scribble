@@ -4,7 +4,7 @@ module Scribble.Session
   , class Continuations
   , class Elem
   , lift
-  , combine
+  , whileWaiting
   , session
   , send
   , receive
@@ -113,14 +113,14 @@ instance sessionMonadAff :: MonadAff m => MonadAff (Session m c i i) where
 lift :: forall c i f a. Functor f => f a -> Session f c i i a
 lift x = Session \c -> map (Tuple c) x
 
-combine :: forall m c i j a.
+whileWaiting :: forall m c i j a.
      -- I really want: forall t. Semigroup m t
      -- But PS doesn't have quantified constraints
      Semigroup (m (Tuple (Channels c j) a))
   => Session m c i j a
   -> (forall t. m t)
   -> Session m c i j a
-combine (Session s) action
+whileWaiting (Session s) action
   = Session \c -> let x = s c in x <> (action :: m (Tuple (Channels c j) a))
 
 connect :: forall r r' rn m s t c p.
