@@ -276,7 +276,7 @@ choice row = Session \(Channels cs) ->
           (Just label) -> if (unsafeHas label row)
                             then do
                                liftAff $ take bv >>= \vs -> put (Cons x vs) bv
-                               (unsafeGet label row) c
+                               (unsafeGet label row) cs
                             else liftAff $ throwError (error $ "Branch chosen `"
                                                    <> label  <> "`  is not supported")
 
