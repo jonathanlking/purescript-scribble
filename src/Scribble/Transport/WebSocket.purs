@@ -25,7 +25,7 @@ import Data.Argonaut.Parser (jsonParser)
 
 import Effect.Aff (Aff, delay, launchAff, forkAff)
 import Effect.Aff.Class (liftAff)
-import Effect.Aff.AVar (AVar, new, empty, put, read, take)
+import Effect.Aff.AVar (AVar, new, empty, put, read, take, tryTake)
 import Data.Time.Duration (Milliseconds(..))
 
 import Effect.Class.Console (log)
@@ -108,7 +108,12 @@ receive c@(WebSocket sv ibuf _) = do
   status <- read sv
   case status of
     Open -> take ibuf 
-    Closed -> throwError $ error "Channel is closed"
+    Closed -> do
+      -- The socket is closed, but there might be unprocessed input still
+      x <- tryTake ibuf
+      case x of
+        Nothing -> throwError $ error "Channel is closed"
+        Just val -> pure val
 
 close :: WebSocket -> Aff Unit
 close (WebSocket sv _ ws) = do
