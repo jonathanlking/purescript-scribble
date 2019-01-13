@@ -88,7 +88,7 @@ instance sessionIxApply :: Monad m => IxApply (Session m c) where
 instance sessionIxFunctor :: Functor m => IxFunctor (Session m c) where
   imap f (Session s) = Session \c -> map (\(Tuple c' x) -> Tuple c' $ f x) $ s c
 
-instance sessionFunctor :: Functor m => Functor (Session m c i i) where
+instance sessionFunctor :: Functor m => Functor (Session m c i j) where
   map = imap
 
 instance sessionApply :: Monad m => Apply (Session m c i i) where
