@@ -213,7 +213,7 @@ receive = Session \(Channels cs) ->
     let key = reflectSymbol (SProxy :: SProxy rn)
     let chan = M.lookup key cs
     case chan of
-      Nothing -> liftAff $ throwError $ error "Channel closed"
+      Nothing -> liftAff $ throwError $ error $ "Channel with " <> key <> " is closed"
       Just (Channel c bv) -> do
          b <- liftAff $ take bv
          x <- case b of
@@ -251,9 +251,9 @@ instance elemEmpty ::
      TE.Fail (TE.Beside (TE.Text l) (TE.Text " is not a supported choice"))
   => Elem Nil l e 
 
-choice :: forall r rn c s ts u funcs row m p a.
-     Branch r s ts
-  => RoleName r rn
+choice :: forall r r' rn c s ts u funcs row m p a.
+     Branch r r' s ts
+  => RoleName r' rn
   => IsSymbol rn
   => Terminal r u
   => Transport c p 
@@ -266,7 +266,7 @@ choice row = Session \(Channels cs) ->
     let key = reflectSymbol (SProxy :: SProxy rn)
     let chan = M.lookup key cs
     case chan of
-      Nothing -> liftAff $ throwError $ error "Channel closed"
+      Nothing -> liftAff $ throwError $ error $ "Channel with " <> key <> " is closed"
       Just c@(Channel ch bv) -> do
         x <- T.receive ch
         let lab = (toObject x >>= lookup "tag" >>= toString)

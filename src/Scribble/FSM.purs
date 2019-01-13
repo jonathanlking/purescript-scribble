@@ -26,8 +26,8 @@ class Receive (r :: Role) s t a | a -> t, s -> r a
 -- | to handle all of the possibilities.
 -- | Valid Scribble protocols guarentee that there is at most one terminal
 -- | state, so all branches must either reach it or loop infinitely.
--- | In this case 'r' is the role of the party offering the choice.
-class Branch (r :: Role) s (ts :: RowList) | s -> ts r
+-- | In this case r is the role offering the choice and r' is the role choosing.
+class Branch (r :: Role) (r' :: Role) s (ts :: RowList) | s -> ts r r'
 
 -- | Selection (internal choice) is the dual of branching and allows you to
 -- | select your next state. You distinguish your choice with a proxy containing
