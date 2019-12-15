@@ -34,7 +34,7 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Aff.AVar (AVar, new, put, take)
 import Effect.Aff.Class (class MonadAff, liftAff)
 
-import Type.Row (class ListToRow, Cons, Nil, kind RowList)
+import Type.RowList (class ListToRow, Cons, Nil, kind RowList)
 import Type.Proxy (Proxy)
 
 import Record.Unsafe (unsafeGet, unsafeHas)

@@ -1,6 +1,6 @@
 module Scribble.FSM where
 
-import Type.Row (kind RowList)
+import Prim.RowList (kind RowList)
 
 foreign import kind Protocol
 data Protocol (p :: Protocol) = Protocol
