@@ -34,7 +34,7 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Aff.AVar (AVar, new, put, take)
 import Effect.Aff.Class (class MonadAff, liftAff)
 
-import Type.RowList (class ListToRow, Cons, Nil, kind RowList)
+import Type.RowList (class ListToRow, Cons, Nil, kind RowList, class RowToList)
 import Type.Proxy (Proxy)
 
 import Record.Unsafe (unsafeGet, unsafeHas)
@@ -251,13 +251,14 @@ instance elemEmpty ::
      TE.Fail (TE.Beside (TE.Text l) (TE.Text " is not a supported choice"))
   => Elem Nil l e 
 
-choice :: forall r r' rn c s ts u funcs row m p a.
+choice :: forall r r' rn c s ts ts' u funcs row m p a.
      Branch r r' s ts
+  => RowToList ts ts'
   => RoleName r' rn
   => IsSymbol rn
   => Terminal r u
   => Transport c p 
-  => Continuations (Session m c) ts u a funcs
+  => Continuations (Session m c) ts' u a funcs
   => ListToRow funcs row
   => MonadAff m
   => Record row -> Session m c s u a
@@ -280,12 +281,13 @@ choice row = Session \(Channels cs) ->
                             else liftAff $ throwError (error $ "Branch chosen `"
                                                    <> label  <> "`  is not supported")
 
-select :: forall r rn c s ts t label m p.
+select :: forall r rn c s ts ts' t label m p.
      Select r s ts
+  => RowToList ts ts'
   => RoleName r rn
   => IsSymbol rn
   => Transport c p
-  => Elem ts label t
+  => Elem ts' label t
   => IsSymbol label
   => MonadAff m
   => SProxy label -> Session m c s t Unit

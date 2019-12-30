@@ -1,7 +1,5 @@
 module Scribble.FSM where
 
-import Prim.RowList (kind RowList)
-
 foreign import kind Protocol
 data Protocol (p :: Protocol) = Protocol
 
@@ -27,13 +25,13 @@ class Receive (r :: Role) s t a | a -> t, s -> r a
 -- | Valid Scribble protocols guarentee that there is at most one terminal
 -- | state, so all branches must either reach it or loop infinitely.
 -- | In this case r is the role offering the choice and r' is the role choosing.
-class Branch (r :: Role) (r' :: Role) s (ts :: RowList) | s -> ts r r'
+class Branch (r :: Role) (r' :: Role) s (ts :: # Type) | s -> ts r r'
 
 -- | Selection (internal choice) is the dual of branching and allows you to
 -- | select your next state. You distinguish your choice with a proxy containing
 -- | the symbol of the next state.
 -- | `s` and `ts` have the same meaning.
-class Select (r :: Role) s (ts :: RowList) | s -> ts r
+class Select (r :: Role) s (ts :: # Type) | s -> ts r
 
 -- | Connect as role `r` to role `r'`
 class Connect (r :: Role) (r' :: Role) s t | s -> r r' t
